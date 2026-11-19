@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>DRAW ROOM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=M+PLUS+Rounded+1c:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#3a3550; --sub:#8c86a3; --paper:#ffffff;
+    --sky:#99ccff; --lav:#e3c4ee; --pink:#ffd3e4; --mint:#cdf1df; --butter:#fff1bd;
+    --line:#ece4f5; --soft:#f7f3fc;
+    --grad:linear-gradient(135deg,#a9d3ff 0%,#e7c8ef 100%);
+    --shadow:0 6px 20px rgba(160,140,210,.22);
+    --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+    --font:"Zen Maru Gothic","M PLUS Rounded 1c",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);
+    font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  body{position:fixed;inset:0}
+  button{font-family:var(--font)}
+  #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;cursor:crosshair}
+  #cv.pan{cursor:grab} #cv.panning{cursor:grabbing}
+  #peers-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .peer-tag{position:absolute;left:0;top:0;display:flex;align-items:center;gap:4px;transition:opacity .3s;will-change:transform}
+  .peer-tag i{width:12px;height:12px;border:2.5px solid #fff;display:block;border-radius:50%;box-shadow:0 1px 4px rgba(58,53,80,.25)}
+  .peer-tag span{font:700 11px/1 var(--font);background:#fff;color:var(--ink);padding:5px 8px;border-radius:999px;white-space:nowrap;
+    max-width:120px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px rgba(160,140,210,.3)}
+
+  /* ---------- HEADER ---------- */
+  .hud-top{position:absolute;top:calc(var(--safe-t) + 10px);left:calc(var(--safe-l) + 10px);right:calc(var(--safe-r) + 10px);
+    display:flex;align-items:flex-start;gap:8px;pointer-events:none}
+  .brand{pointer-events:auto;background:#fff;border-radius:18px;padding:7px 12px 6px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px}
+  .brand img{height:26px;width:auto;display:block}
+  .brand b{font:800 10px/1 "M PLUS Rounded 1c",var(--font);letter-spacing:.12em;color:var(--sub);padding-left:2px}
+  .online{pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:6px;background:#fff;border-radius:999px;height:44px;padding:0 10px 0 12px;
+    box-shadow:var(--shadow);min-width:0}
+  .dot-live{width:8px;height:8px;border-radius:50%;background:#7fdcae;flex:none;box-shadow:0 0 0 3px #e3f8ee}
+  .dot-live.off{background:#cfc9dc;box-shadow:0 0 0 3px #f1eef6}
+  .online .num{font:800 16px/1 "M PLUS Rounded 1c",var(--font)}
+  .online .lbl{font:700 11px/1 var(--font);color:var(--sub)}
+  .avatars{display:flex;margin-left:2px}
+  .av{width:26px;height:26px;border-radius:50%;border:2.5px solid #fff;margin-left:-8px;display:grid;place-items:center;
+    font:900 11px/1 var(--font);color:var(--ink);flex:none}
+  .av:first-child{margin-left:0}
+  .spacer{flex:1}
+  .sqbtn{pointer-events:auto;width:44px;height:44px;border:0;background:#fff;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+    color:var(--ink);padding:0;box-shadow:var(--shadow);transition:transform .15s,background .15s}
+  .sqbtn:hover{background:var(--soft)} .sqbtn:active{transform:scale(.92)}
+  .sqbtn svg{width:20px;height:20px}
+  .zoom{pointer-events:none;font:700 11px/1 var(--font);color:var(--sub);position:absolute;background:rgba(255,255,255,.85);padding:4px 8px;border-radius:999px;
+    top:calc(var(--safe-t) + 62px);right:calc(var(--safe-r) + 12px)}
+
+  /* side toggles */
+  .side{position:absolute;right:calc(var(--safe-r) + 10px);top:calc(var(--safe-t) + 96px);display:flex;flex-direction:column;gap:8px}
+  .side .sqbtn{width:40px;height:40px}
+  .side .sqbtn svg{width:19px;height:19px}
+  .side .sqbtn.on{background:var(--grad)}
+  /* minimap */
+  .map{position:absolute;right:calc(var(--safe-r) + 10px);bottom:calc(var(--dockH,140px) + 12px);background:#fff;border-radius:18px;
+    box-shadow:0 6px 22px rgba(160,140,210,.3);padding:8px 8px 7px;display:none;flex-direction:column;gap:5px;touch-action:none;cursor:pointer}
+  .map.open{display:flex}
+  .map canvas{width:112px;height:112px;display:block;border-radius:12px}
+  .map .cap{display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--font);color:var(--sub);padding:0 2px}
+  .map .cap b{font:800 12px/1 "M PLUS Rounded 1c",var(--font);color:var(--ink);background:var(--soft);padding:4px 7px;border-radius:999px}
+
+  /* ---------- TOOLBAR ---------- */
+  .dock{position:absolute;left:calc(var(--safe-l) + 8px);right:calc(var(--safe-r) + 8px);bottom:calc(var(--safe-b) + 8px);
+    background:#fff;border-radius:26px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto;
+    box-shadow:0 8px 30px rgba(160,140,210,.3);border:2px solid #f3edf9}
+  .row{display:flex;align-items:center;gap:6px}
+  .colors{overflow-x:auto;scrollbar-width:none;padding:8px 8px;gap:8px;margin:-3px -4px}
+  .colors::-webkit-scrollbar{display:none}
+  .sw{flex:none;width:30px;height:30px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1.5px rgba(58,53,80,.08);transition:transform .15s}
+  .sw.on{transform:scale(1.12);box-shadow:0 0 0 3px #fff,0 0 0 5.5px var(--ink)}
+  .sw.custom{background:conic-gradient(from 180deg,#ff9fc0,#ffd36e,#8ee0b4,#7cc8ff,#b39dff,#ff9fc0);display:grid;place-items:center}
+  .sw.custom i{width:16px;height:16px;border-radius:50%;background:#fff;display:grid;place-items:center;font:900 14px/1 var(--font);color:var(--ink);font-style:normal}
+  .sw.custom.has i{width:20px;height:20px;border:2.5px solid #fff;font-size:0}
+
+  /* ---------- COLOR PICKER ---------- */
+  .picker{position:absolute;left:50%;transform:translateX(-50%);width:min(340px,calc(100% - 16px));background:#fff;border-radius:24px;
+    box-shadow:0 10px 36px rgba(160,140,210,.36);padding:14px;display:none;flex-direction:column;gap:12px;z-index:5}
+  .picker.open{display:flex}
+  .picker .hd{display:flex;align-items:center;justify-content:space-between;font:700 13px/1 var(--font)}
+  .picker .x{all:unset;cursor:pointer;width:32px;height:32px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font:700 16px/1 var(--font)}
+  .sv{position:relative;height:150px;border-radius:16px;touch-action:none;cursor:crosshair}
+  .sv::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,#fff,rgba(255,255,255,0))}
+  .sv::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(0deg,#000,rgba(0,0,0,0))}
+  .hue{position:relative;height:22px;border-radius:999px;touch-action:none;cursor:pointer;
+    background:linear-gradient(90deg,#f00,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00)}
+  .knob{position:absolute;width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.3);transform:translate(-50%,-50%);pointer-events:none;z-index:2}
+  .hue .knob{top:50%}
+  .pk-row{display:flex;align-items:center;gap:10px}
+  .pk-prev{width:40px;height:40px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1.5px rgba(58,53,80,.1)}
+  .pk-hex{flex:1;min-width:0;height:40px;border:0;background:var(--soft);border-radius:12px;padding:0 12px;font:700 15px/1 var(--font);color:var(--ink);
+    -webkit-user-select:text;user-select:text;text-transform:uppercase}
+  .pk-hex:focus{outline:2px solid var(--sky)}
+  .pk-ok{all:unset;cursor:pointer;height:40px;padding:0 18px;border-radius:999px;background:var(--grad);font:700 14px/40px var(--font);color:var(--ink)}
+  .pk-recent{display:flex;gap:8px;flex-wrap:wrap;min-height:26px;align-items:center}
+  .pk-recent span{font:700 11px/1 var(--font);color:var(--sub);margin-right:2px}
+  .pk-recent button{width:26px;height:26px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1.5px rgba(58,53,80,.1)}
+  .sep{width:1.5px;height:30px;background:var(--line);flex:none;margin:0 1px;border-radius:2px}
+  .tool{flex:1;min-width:0;height:48px;border:0;background:var(--soft);color:var(--ink);border-radius:16px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0;transition:background .15s,transform .15s}
+  .tool:active{transform:scale(.95)}
+  .tool svg{width:19px;height:19px}
+  .tool em{font:700 10px/1 var(--font);font-style:normal;white-space:nowrap}
+  .tool.on{background:var(--grad);color:var(--ink)}
+  .tool:disabled{opacity:.35}
+  .size{flex:none;width:38px;height:48px;border:0;background:var(--soft);border-radius:14px;display:grid;place-items:center;cursor:pointer;padding:0}
+  .size i{display:block;background:var(--ink);border-radius:50%}
+  .size.on{background:var(--pink)}
+  .meta{display:flex;justify-content:space-between;font:700 10px/1 var(--font);color:var(--sub);padding:0 6px}
+
+  /* ---------- PANELS / DIALOG / TOAST ---------- */
+  .people,.menu{position:absolute;top:calc(var(--safe-t) + 64px);background:#fff;border-radius:20px;box-shadow:0 10px 32px rgba(160,140,210,.32);overflow:hidden;display:none;flex-direction:column}
+  .people{left:calc(var(--safe-l) + 10px);min-width:240px;max-width:calc(100% - 20px);max-height:50vh;overflow:auto}
+  .menu{right:calc(var(--safe-r) + 10px);min-width:220px;max-width:min(290px,calc(100% - 20px))}
+  .people.open,.menu.open{display:flex}
+  .people .hd{font:700 11px/1 var(--font);color:var(--sub);padding:13px 16px 9px;display:flex;justify-content:space-between}
+  .people button,.menu button{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 16px;font:700 14px/1.2 var(--font);color:var(--ink)}
+  .people button:hover,.menu button:hover{background:var(--soft)}
+  .people button .av{margin:0;border-color:#fff}
+  .people button .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .people button small,.menu button small{font:700 11px/1 var(--font);color:var(--sub);margin-left:auto}
+  .people button[disabled]{cursor:default;opacity:.6}
+  .menu .ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:15px}
+  .menu .danger{color:#d9517a}
+  .menu .note{padding:11px 16px 14px;font:500 12px/1.6 var(--font);color:var(--sub);background:var(--soft)}
+
+  .scrim{position:absolute;inset:0;background:rgba(58,53,80,.28);display:none;align-items:center;justify-content:center;padding:20px}
+  .scrim.open{display:flex}
+  .dialog{background:#fff;border-radius:26px;width:100%;max-width:330px;padding:22px 20px 18px;text-align:center;box-shadow:0 12px 40px rgba(120,100,180,.3)}
+  .dialog .no{width:56px;height:56px;margin:0 auto;border-radius:50%;background:var(--pink);display:grid;place-items:center;color:#d9517a}
+  .dialog .no svg{width:28px;height:28px}
+  .dialog h3{margin:14px 0 6px;font:900 17px/1.4 var(--font)}
+  .dialog p{margin:0 0 18px;font:500 14px/1.6 var(--font);color:var(--sub)}
+  .dialog .acts{display:flex;gap:8px}
+  .dialog button{flex:1;height:46px;border-radius:999px;border:0;font:700 14px/1 var(--font);cursor:pointer;background:var(--soft);color:var(--ink)}
+  .dialog button.primary{background:#ff8fb1;color:#fff}
+
+  .toast{position:absolute;left:50%;top:calc(var(--safe-t) + 66px);transform:translateX(-50%);background:var(--ink);color:#fff;
+    font:700 13px/1.4 var(--font);padding:10px 16px;border-radius:999px;max-width:calc(100% - 40px);text-align:center;
+    opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  .status{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--safe-t) + 112px);font:700 12px/1.4 var(--font);
+    color:var(--sub);background:#fff;border-radius:999px;padding:7px 14px;white-space:nowrap;pointer-events:none;display:none;box-shadow:var(--shadow)}
+  .status.show{display:block}
+
+
+  /* ---------- GATE (login etc.) ---------- */
+  .gate{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;
+    background:radial-gradient(circle at 20% 15%,#e6f2ff 0,transparent 55%),radial-gradient(circle at 85% 80%,#f5e6fa 0,transparent 55%),#fbf9fe}
+  .gate.open{display:flex}
+  .gate-card{width:100%;max-width:340px;background:#fff;border-radius:28px;padding:28px 22px 22px;box-shadow:0 12px 40px rgba(160,140,210,.28);
+    display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center}
+  .gate-logo{height:44px;width:auto;align-self:center}
+  .gate-title{font:800 15px/1 "M PLUS Rounded 1c",var(--font);color:var(--sub);letter-spacing:.12em;margin-bottom:6px}
+  #gateBody{display:flex;flex-direction:column;gap:10px}
+  .g-text{margin:0;font:500 14px/1.7 var(--font);color:var(--ink)}
+  .g-title2{margin:0;font:900 18px/1.4 var(--font);color:#d9517a}
+  .g-note{margin:0;font:500 12px/1.6 var(--font);color:var(--sub)}
+  .g-input{height:46px;border:0;background:var(--soft);border-radius:14px;padding:0 14px;font:700 15px/1 var(--font);color:var(--ink);
+    -webkit-user-select:text;user-select:text;text-align:center}
+  .g-input:focus{outline:2px solid var(--sky)}
+  .g-btn{height:48px;border:0;border-radius:999px;background:var(--soft);color:var(--ink);font:700 15px/1 var(--font);cursor:pointer}
+  .g-btn.primary{background:var(--grad)}
+  .g-btn:disabled{opacity:.5}
+
+  /* ---------- WARNING ---------- */
+  .warn{position:absolute;inset:0;z-index:15;background:rgba(58,53,80,.35);display:none;align-items:center;justify-content:center;padding:20px}
+  .warn.open{display:flex}
+  .warn-card{background:#fff;border-radius:26px;width:100%;max-width:340px;padding:22px 20px 18px;box-shadow:0 12px 40px rgba(120,100,180,.3)}
+  .warn-card h3{margin:0 0 4px;font:900 17px/1.4 var(--font);color:#d9517a}
+  .warn-date{font:700 11px/1 var(--font);color:var(--sub)}
+  .warn-msg{margin:14px 0 18px;font:500 15px/1.7 var(--font);white-space:pre-wrap;word-break:break-word;background:var(--soft);border-radius:16px;padding:12px 14px}
+  .warn-card button{width:100%;height:48px;border:0;border-radius:999px;background:var(--grad);font:700 15px/1 var(--font);color:var(--ink);cursor:pointer}
+
+  /* ---------- STAFF ---------- */
+  .side .sqbtn.staff-btn{display:none}
+  .staff{position:absolute;left:calc(var(--safe-l) + 8px);right:calc(var(--safe-r) + 8px);bottom:calc(var(--safe-b) + 8px);z-index:6;
+    max-width:620px;margin:0 auto;background:#fff;border-radius:26px;box-shadow:0 8px 30px rgba(160,140,210,.32);border:2px solid #f3edf9;
+    display:none;flex-direction:column;max-height:min(56vh,480px)}
+  .staff.open{display:flex}
+  .st-top{display:flex;align-items:center;gap:6px;padding:10px 10px 6px}
+  .st-top b{font:800 13px/1 "M PLUS Rounded 1c",var(--font);padding:0 6px;color:#8a6ad8}
+  .st-tab{border:0;background:var(--soft);border-radius:999px;height:34px;padding:0 14px;font:700 13px/1 var(--font);color:var(--ink);cursor:pointer}
+  .st-tab.on{background:var(--grad)}
+  .st-x{margin-left:auto;border:0;width:34px;height:34px;border-radius:50%;background:var(--soft);font:700 16px/1 var(--font);cursor:pointer;color:var(--ink)}
+  #staffBody{overflow:auto;padding:4px 12px 14px;display:flex;flex-direction:column;gap:8px}
+  .st-hint{margin:10px 4px;font:500 13px/1.6 var(--font);color:var(--sub)}
+  .st-card{display:flex;flex-direction:column;gap:10px}
+  .st-head{display:flex;align-items:center;gap:10px}
+  .st-head .av{margin:0;width:34px;height:34px;font-size:14px;border-color:#fff}
+  .st-name{font:900 16px/1.3 var(--font);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-badge{font:700 11px/1 var(--font);padding:5px 8px;border-radius:999px;background:var(--soft)}
+  .st-badge.ban{background:#ffd3e4;color:#c2416c}
+  .st-dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;background:var(--soft);border-radius:16px;padding:12px 14px}
+  .st-dl dt{font:700 12px/1.5 var(--font);color:var(--sub)}
+  .st-dl dd{margin:0;font:700 13px/1.5 var(--font);word-break:break-all}
+  .st-acts{display:flex;flex-wrap:wrap;gap:6px}
+  .st-acts .g-btn{height:40px;padding:0 14px;font-size:13px;flex:1 1 auto}
+  .g-btn.danger{background:#ffe1eb;color:#c2416c}
+  .g-btn.link{all:unset;cursor:pointer;font:700 13px/1 var(--font);color:#7a6ad0;padding:6px 2px}
+  .st-row{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:14px}
+  .st-row:hover{background:var(--soft)}
+  .st-row .av{margin:0;border-color:#fff}
+  .st-row-main{flex:1;min-width:0}
+  .st-row-name{font:700 14px/1.3 var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-row-sub{font:500 11.5px/1.4 var(--font);color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .st-log{padding:9px 6px;border-bottom:1px solid var(--line)}
+  .st-log-time{font:700 11px/1.4 var(--font);color:var(--sub)}
+  .st-log-main{font:700 13px/1.5 var(--font)}
+  .st-log-detail{font:500 12px/1.5 var(--font);color:var(--sub);word-break:break-word}
+  .dlg{position:absolute;inset:0;z-index:16;background:rgba(58,53,80,.3);display:none;align-items:center;justify-content:center;padding:20px}
+  .dlg.open{display:flex}
+  .dlg-card{background:#fff;border-radius:24px;width:100%;max-width:340px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(120,100,180,.3)}
+  .dlg-card h3{margin:0;font:900 16px/1.4 var(--font)}
+  #dlgBody{display:flex;flex-direction:column;gap:10px}
+  .d-text{margin:0;font:500 13px/1.6 var(--font);color:var(--sub)}
+  .d-input{border:0;background:var(--soft);border-radius:14px;padding:12px 14px;font:500 14px/1.6 var(--font);color:var(--ink);resize:none;
+    -webkit-user-select:text;user-select:text;font-family:var(--font)}
+  .d-input:focus{outline:2px solid var(--sky)}
+  .d-radios{display:flex;gap:6px}
+  .d-radio{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:42px;border-radius:999px;background:var(--soft);font:700 13px/1 var(--font);cursor:pointer}
+  .d-radio:has(input:checked){background:var(--grad)}
+  .d-radio input{accent-color:#8a6ad8}
+  .d-check{display:flex;align-items:center;gap:8px;font:700 13px/1.4 var(--font)}
+  .dlg-acts{display:flex;gap:8px}
+  .dlg-acts button{flex:1;height:46px;border-radius:999px;border:0;font:700 14px/1 var(--font);cursor:pointer;background:var(--soft);color:var(--ink)}
+  .dlg-acts button.primary{background:var(--grad)}
+  .dlg-acts button.primary.danger{background:#ff8fb1;color:#fff}
+
+  @media (max-width:380px){
+    .online .lbl{display:none}
+    .brand img{height:22px}
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="peers-layer"></div>
+
+<div class="hud-top">
+  <div class="brand">
+    <img src="data:image/png;base64,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" alt="Linear Vライバー事務所 リニア">
+    <b>おえかきルーム</b>
+  </div>
+  <div class="online" id="online" title="いま参加中の人">
+    <span class="dot-live off" id="liveDot"></span>
+    <span class="num" id="onlineNum">1</span>
+    <span class="lbl">人</span>
+    <div class="avatars" id="avatars"></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="sqbtn" id="fitBtn" aria-label="全体を見る">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V6a2 2 0 0 1 2-2h3M20 9V6a2 2 0 0 0-2-2h-3M4 15v3a2 2 0 0 0 2 2h3M20 15v3a2 2 0 0 1-2 2h-3"/></svg>
+  </button>
+  <button class="sqbtn" id="menuBtn" aria-label="メニュー">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+  </button>
+</div>
+<div class="zoom" id="zoomLbl">100%</div>
+<div class="side">
+  <button class="sqbtn" id="gridBtn" aria-label="グリッドの表示切り替え" title="グリッド">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9.2 3.5v17M14.8 3.5v17M3.5 9.2h17M3.5 14.8h17"/></svg>
+  </button>
+  <button class="sqbtn staff-btn" id="staffBtn" aria-label="運営モード" title="運営モード">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg>
+  </button>
+  <button class="sqbtn" id="mapBtn" aria-label="ガイドマップの表示切り替え" title="ガイドマップ">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></svg>
+  </button>
+</div>
+<div class="map" id="map" aria-label="ガイドマップ">
+  <canvas id="mapCv" width="224" height="224"></canvas>
+  <div class="cap"><span>いまの場所</span><b id="mapSec">F-6</b></div>
+</div>
+
+<div class="people" id="people"></div>
+<div class="menu" id="menu">
+  <button id="mHome"><span class="ic" style="background:var(--mint)">⌂</span>まんなかに戻る</button>
+  <button id="mFit"><span class="ic" style="background:#d9ebff">⤢</span>描いた絵を全部見る</button>
+  <button id="mBoard"><span class="ic" style="background:#e9dcff">▢</span>キャンバスの端まで見る</button>
+  <button id="mReset"><span class="ic" style="background:var(--butter)">1:1</span>倍率を100%に</button>
+  <button id="mClear" class="danger" style="display:none"><span class="ic" style="background:var(--pink)">✕</span>キャンバスを全部消す<small>管理者</small></button>
+  <button id="mLogout"><span class="ic" style="background:var(--soft)">↩</span>ログアウト</button>
+  <div class="note">2本指で移動・拡大縮小できます。人数を押すと、その人の場所へ飛べます。</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="status" id="status"></div>
+
+<div class="picker" id="picker" role="dialog" aria-label="色をえらぶ">
+  <div class="hd"><span>すきな色をえらぶ</span><button class="x" id="pkClose" aria-label="閉じる">×</button></div>
+  <div class="sv" id="pkSV"><div class="knob" id="pkSVk"></div></div>
+  <div class="hue" id="pkHue"><div class="knob" id="pkHuek"></div></div>
+  <div class="pk-row">
+    <div class="pk-prev" id="pkPrev"></div>
+    <input class="pk-hex" id="pkHex" maxlength="7" inputmode="text" autocomplete="off" spellcheck="false" aria-label="カラーコード">
+    <button class="pk-ok" id="pkOk">この色で描く</button>
+  </div>
+  <div class="pk-recent" id="pkRecent"></div>
+</div>
+<div class="dock" id="dock">
+  <div class="row colors" id="colors"></div>
+  <div class="row">
+    <button class="tool on" data-tool="pen" aria-label="ペン">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><em>ペン</em>
+    </button>
+    <button class="tool" data-tool="eraser" aria-label="消しゴム">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg><em>けす</em>
+    </button>
+    <button class="tool" data-tool="pan" aria-label="移動">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg><em>いどう</em>
+    </button>
+    <span class="sep"></span>
+    <button class="size" data-size="3" aria-label="細"><i style="width:3px;height:3px"></i></button>
+    <button class="size on" data-size="8" aria-label="中"><i style="width:8px;height:8px"></i></button>
+    <button class="size" data-size="22" aria-label="太"><i style="width:22px;height:22px"></i></button>
+    <span class="sep"></span>
+    <button class="tool" id="undoBtn" aria-label="ひとつ戻す" style="flex:0 0 50px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><em>もどす</em>
+    </button>
+  </div>
+  <div class="meta"><span id="metaL">Linear おえかきルーム</span><span id="metaR">0本の線</span></div>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="dialog">
+    <div class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+    <h3>キャンバスを全部消しますか？</h3>
+    <p>みんなが描いた絵もすべて消えて、元に戻せません。</p>
+    <div class="acts"><button id="dNo">やめる</button><button class="primary" id="dYes">全部消す</button></div>
+  </div>
+</div>
+
+<div class="staff" id="staff">
+  <div class="st-top">
+    <b>運営</b>
+    <button class="st-tab on" data-tab="line">線</button>
+    <button class="st-tab" data-tab="members">メンバー</button>
+    <button class="st-tab" data-tab="log">記録</button>
+    <button class="st-x" id="staffClose" aria-label="運営モードを終える">×</button>
+  </div>
+  <div id="staffBody"></div>
+</div>
+
+<div class="dlg" id="dlg">
+  <div class="dlg-card">
+    <h3 id="dlgTitle"></h3>
+    <div id="dlgBody"></div>
+    <div class="dlg-acts"><button id="dlgNo">やめる</button><button class="primary" id="dlgOk">OK</button></div>
+  </div>
+</div>
+
+<div class="warn" id="warn">
+  <div class="warn-card">
+    <h3>運営からのお知らせ</h3>
+    <div class="warn-date" id="warnDate"></div>
+    <div class="warn-msg" id="warnMsg"></div>
+    <button id="warnOk">確認しました</button>
+  </div>
+</div>
+
+<div class="gate open" id="gate">
+  <div class="gate-card">
+    <img class="gate-logo" id="gateLogo" alt="Linear Vライバー事務所 リニア">
+    <div class="gate-title">おえかきルーム</div>
+    <div id="gateBody"><p class="g-note">読み込み中…</p></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+/* ============ CONFIG ============ */
+const COLORS = ["#3a3550","#ff7aa8","#ffb3cf","#ff9f80","#ffd36e","#8ee0b4","#7cc8ff","#a9d3ff","#b39dff","#e3c4ee","#c9a98c","#b8b3c8"];
+const AV_COLORS = ["#ffd3e4","#cdf1df","#fff1bd","#d9ebff","#e9dcff","#ffe0d1"];
+const MAX_PTS = 2500;            // points per stroke before splitting
+const MIN_SCALE = 0.02, MAX_SCALE = 8;
+// the canvas is a huge board with an edge: 12000 x 12000 canvas px around the origin
+const B = { x0:-6000, y0:-6000, x1:6000, y1:6000 };
+const EDGE_A = "#99ccff", EDGE_B = "#e7c8ef";   // Linear sky -> lavender
+const OUTSIDE = "#f6f2fb";
+const SECTION = 1000;   // one grid section = 1000 canvas px  (12 x 12 sections)
+const COLS = "ABCDEFGHIJKL";
+let gridOn = false, mapOn = true;
+try{ gridOn = localStorage.getItem("drawroom.grid")==="1"; mapOn = localStorage.getItem("drawroom.map")!=="0"; }catch(_){}
+function sectionName(wx,wy){
+  const c = Math.min(11,Math.max(0,Math.floor((wx-B.x0)/SECTION))), r = Math.min(11,Math.max(0,Math.floor((wy-B.y0)/SECTION)));
+  return COLS[c] + "-" + (r+1);
+}
+const inBounds = (x,y) => x>=B.x0 && x<=B.x1 && y>=B.y0 && y<=B.y1;
+const clampX = x => Math.min(B.x1, Math.max(B.x0, x));
+const clampY = y => Math.min(B.y1, Math.max(B.y0, y));
+
+/* ============ STATE ============ */
+const cv = document.getElementById("cv");
+let ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+const view = { x: 0, y: 0, s: 1 };
+let tool = "pen", color = COLORS[0], size = 8;
+
+const tabId = rid(8);
+let myUid = null;
+let api = null;                     // backend: Supabase, or the in-browser demo
+let me = null;                      // { id, name, role, iriam }
+let canWrite = false, isAdmin = false;
+
+const strokes = new Map();          // id -> saved stroke {id,c,w,p,t,by}
+let ordered = [];                   // saved strokes, oldest first
+const pathCache = new Map();        // stroke id -> {path, box}
+const live = new Map();             // peer live strokes: sid -> {c,w,p,done,at}
+let cur = null;                     // my in-progress stroke
+const undoStack = [];               // {type:"add", id} | {type:"rub", trash:[ids], added:[ids]}
+let erasing = null;                 // eraser rub in progress
+let staffMode = false;              // staff: tap lines to see who drew them
+let focusUser = null;               // staff: only this person's lines at full strength
+let picked = null;                  // staff: the line picked on the canvas
+
+let needDraw = true;
+
+/* ============ UTIL ============ */
+function rid(n){ const a="abcdefghijklmnopqrstuvwxyz0123456789"; let s=""; const r=crypto.getRandomValues(new Uint8Array(n)); for(const b of r) s+=a[b%36]; return s; }
+function strokeId(){ return Date.now().toString(36).padStart(9,"0") + "-" + rid(5); }
+const r1 = v => Math.round(v*10)/10;
+function toast(msg, ms=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),ms); }
+function setStatus(msg){ const s=document.getElementById("status"); if(msg){ s.textContent=msg; s.classList.add("show"); } else s.classList.remove("show"); }
+function hashColor(str){ let h=0; for(const ch of String(str)) h=(h*31+ch.charCodeAt(0))|0; return AV_COLORS[Math.abs(h)%AV_COLORS.length]; }
+const isHex = c => typeof c==="string" && /^#[0-9a-fA-F]{6}$/.test(c);
+
+function validStroke(s){
+  if(!s || typeof s!=="object") return null;
+  if(typeof s.id!=="string" || s.id.length>40) return null;
+  if(!isHex(s.c)) return null;
+  const w = Number(s.w); if(!(w>=0.5 && w<=200)) return null;
+  if(!Array.isArray(s.p) || s.p.length<2 || s.p.length%2) return null;
+  for(let i=0;i<s.p.length;i++){ if(typeof s.p[i]!=="number" || !isFinite(s.p[i])) return null; }
+  return { id:s.id, c:s.c, w, p:s.p, t:Number(s.t)||0, by: typeof s.by==="string"? s.by : null };
+}
+
+/* ============ CANVAS / VIEW ============ */
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2.5);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  needDraw = true;
+}
+window.addEventListener("resize", resize);
+resize();
+view.x = W/2; view.y = H/2;   // world origin at screen center
+
+const toWorld = (sx,sy) => [(sx-view.x)/view.s, (sy-view.y)/view.s];
+const toScreen = (wx,wy) => [wx*view.s+view.x, wy*view.s+view.y];
+
+function buildPath(p){
+  const path = new Path2D();
+  const n = p.length/2;
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(let i=0;i<p.length;i+=2){ const x=p[i],y=p[i+1]; if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; }
+  path.moveTo(p[0],p[1]);
+  if(n===1){ path.lineTo(p[0]+0.01,p[1]); }
+  else if(n===2){ path.lineTo(p[2],p[3]); }
+  else{
+    for(let i=2;i<p.length-2;i+=2){
+      const mx=(p[i]+p[i+2])/2, my=(p[i+1]+p[i+3])/2;
+      path.quadraticCurveTo(p[i],p[i+1],mx,my);
+    }
+    path.lineTo(p[p.length-2],p[p.length-1]);
+  }
+  return { path, box:[minx,miny,maxx,maxy] };
+}
+function cached(s){
+  let c = pathCache.get(s.id);
+  if(!c){ c = buildPath(s.p); pathCache.set(s.id,c); }
+  return c;
+}
+
+function drawGridLines(){
+  const [bx0,by0] = toScreen(B.x0,B.y0), [bx1,by1] = toScreen(B.x1,B.y1);
+  const gx0=Math.max(0,bx0), gy0=Math.max(0,by0), gx1=Math.min(W,bx1), gy1=Math.min(H,by1);
+  if(gx1<=gx0 || gy1<=gy0) return;
+  const [wx0,wy0] = toWorld(gx0,gy0), [wx1,wy1] = toWorld(gx1,gy1);
+  const lines = (step, color, width) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    for(let x=Math.ceil(wx0/step)*step; x<=wx1; x+=step){ const sx=Math.round(x*view.s+view.x)+.5; ctx.moveTo(sx,gy0); ctx.lineTo(sx,gy1); }
+    for(let y=Math.ceil(wy0/step)*step; y<=wy1; y+=step){ const sy=Math.round(y*view.s+view.y)+.5; ctx.moveTo(gx0,sy); ctx.lineTo(gx1,sy); }
+    ctx.stroke();
+  };
+  const minor = [50,100,250,500].find(st => st*view.s >= 26);
+  if(minor) lines(minor, "#f1eaf7", 1);
+  if(SECTION*view.s >= 5) lines(SECTION, "#d9cdea", SECTION*view.s>60 ? 1.6 : 1);
+}
+function drawSectionLabels(){
+  // a label for every section on screen, kept inside the visible part of its cell
+  const cell = SECTION*view.s;
+  if(cell < 22) return;
+  const compact = cell < 64;   // far zoomed: small centered names, no pills
+  const top = 64, pad = 8;
+  const [wx0,wy0] = toWorld(0,top), [wx1,wy1] = toWorld(W,H);
+  const c0=Math.max(0,Math.floor((wx0-B.x0)/SECTION)), c1=Math.min(11,Math.floor((wx1-B.x0)/SECTION));
+  const r0=Math.max(0,Math.floor((wy0-B.y0)/SECTION)), r1=Math.min(11,Math.floor((wy1-B.y0)/SECTION));
+  ctx.font = '700 11px "Zen Maru Gothic","M PLUS Rounded 1c",sans-serif';
+  ctx.textBaseline = "middle";
+  for(let c=c0;c<=c1;c++) for(let r=r0;r<=r1;r++){
+    const [x0,y0] = toScreen(B.x0+c*SECTION, B.y0+r*SECTION), [x1,y1] = toScreen(B.x0+(c+1)*SECTION, B.y0+(r+1)*SECTION);
+    const lx = Math.max(x0,0)+pad, ly = Math.max(y0,top)+pad;
+    const txt = COLS[c]+"-"+(r+1);
+    if(compact){
+      ctx.font = '700 '+(cell<36?9:10)+'px "Zen Maru Gothic","M PLUS Rounded 1c",sans-serif';
+      ctx.textAlign = "center"; ctx.fillStyle = "rgba(140,134,163,.75)";
+      ctx.fillText(txt, (x0+x1)/2, (y0+y1)/2);
+      ctx.textAlign = "start";
+      continue;
+    }
+    const tw = ctx.measureText(txt).width + 14;
+    if(lx+tw > x1-2 || ly+20 > y1-2) continue;
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(lx,ly,tw,20,10); else ctx.rect(lx,ly,tw,20); ctx.fill();
+    ctx.strokeStyle = "#e3d8f0"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#8c86a3"; ctx.fillText(txt, lx+7, ly+10.5);
+  }
+}
+function drawGrid(){
+  if(gridOn){ drawGridLines(); return; }
+  const step0 = 48;
+  let step = step0*view.s;
+  while(step<22) step*=2;
+  while(step>110) step/=2;
+  const ox = ((view.x % step)+step)%step, oy = ((view.y % step)+step)%step;
+  ctx.fillStyle = "#eadff2";
+  const r = 1.1;
+  const [bx0,by0] = toScreen(B.x0,B.y0), [bx1,by1] = toScreen(B.x1,B.y1);
+  const gx0=Math.max(0,bx0), gy0=Math.max(0,by0), gx1=Math.min(W,bx1), gy1=Math.min(H,by1);
+  const sx = ox + Math.ceil((gx0-ox)/step)*step, sy = oy + Math.ceil((gy0-oy)/step)*step;
+  for(let x=sx; x<gx1; x+=step){ for(let y=sy; y<gy1; y+=step){ ctx.fillRect(x-r/2,y-r/2,r,r); } }
+  // origin cross (trim mark)
+  const [cx,cy] = toScreen(0,0);
+  if(cx>-20 && cx<W+20 && cy>-20 && cy<H+20){
+    ctx.strokeStyle="#dccdea"; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(cx-10,cy); ctx.lineTo(cx+10,cy); ctx.moveTo(cx,cy-10); ctx.lineTo(cx,cy+10); ctx.stroke();
+  }
+}
+
+function boardRadius(){ return Math.min(28, (B.x1-B.x0)*view.s/6); }
+function boardPath(c, inset){
+  const [x0,y0] = toScreen(B.x0,B.y0), [x1,y1] = toScreen(B.x1,B.y1);
+  const r = Math.max(0, boardRadius() - inset);
+  c.beginPath();
+  if(c.roundRect) c.roundRect(x0+inset,y0+inset,(x1-x0)-inset*2,(y1-y0)-inset*2,r);
+  else c.rect(x0+inset,y0+inset,(x1-x0)-inset*2,(y1-y0)-inset*2);
+}
+function drawEdge(){
+  // gradient frame along the canvas edge, constant thickness on screen
+  const [x0,y0] = toScreen(B.x0,B.y0), [x1,y1] = toScreen(B.x1,B.y1);
+  if(x1<-40 || x0>W+40 || y1<-40 || y0>H+40) return;
+  ctx.save();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const g = ctx.createLinearGradient(x0,y0,x1,y1);
+  g.addColorStop(0, EDGE_A); g.addColorStop(0.5, "#c6c9f7"); g.addColorStop(1, EDGE_B);
+  // soft outer glow
+  ctx.lineWidth = 22; ctx.strokeStyle = g; ctx.globalAlpha = 0.18; boardPath(ctx,-11); ctx.stroke();
+  ctx.globalAlpha = 1;
+  // two-tone band so the gradient reads even when zoomed in on one edge
+  const g2 = ctx.createLinearGradient(x0,y0,x1,y1);
+  g2.addColorStop(0, EDGE_B); g2.addColorStop(0.5, "#cfe6ff"); g2.addColorStop(1, EDGE_A);
+  ctx.lineWidth = 12; ctx.strokeStyle = g2; boardPath(ctx,-6); ctx.stroke();
+  ctx.lineWidth = 6; ctx.strokeStyle = g; boardPath(ctx,-3); ctx.stroke();
+  // thin white highlight inside
+  ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(255,255,255,.9)"; boardPath(ctx,-6.2); ctx.stroke();
+  ctx.restore();
+}
+function clipBoard(){
+  ctx.save(); ctx.setTransform(DPR,0,0,DPR,0,0); boardPath(ctx,0); ctx.restore(); ctx.clip();
+}
+function clampView(){
+  const m = 70;
+  const [x0,y0] = toScreen(B.x0,B.y0), [x1,y1] = toScreen(B.x1,B.y1);
+  if(x1 < m) view.x += m-x1; else if(x0 > W-m) view.x -= x0-(W-m);
+  if(y1 < m) view.y += m-y1; else if(y0 > H-m) view.y -= y0-(H-m);
+}
+function strokeIt(c,w,path){
+  ctx.strokeStyle = c; ctx.lineWidth = w; ctx.stroke(path);
+}
+
+function draw(){
+  needDraw = false;
+  clampView();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  // committed strokes are rendered once into a cached layer; only live ink is redrawn per frame
+  if(!baseValid || baseView.x!==view.x || baseView.y!==view.y || baseView.s!==view.s || base.width!==cv.width || base.height!==cv.height){
+    renderBase();
+  }
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(base,0,0);
+  if(live.size || cur){
+    ctx.save();
+    clipBoard();
+    ctx.setTransform(DPR*view.s,0,0,DPR*view.s,DPR*view.x,DPR*view.y);
+    ctx.lineCap="round"; ctx.lineJoin="round";
+    for(const l of live.values()){ if(l.p.length>=2) strokeIt(l.c,l.w,buildPath(l.p).path); }
+    if(cur && cur.p.length>=2) strokeIt(cur.c,cur.w,buildPath(cur.p).path);
+    ctx.restore();
+  }
+  if(erasing){
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.beginPath(); ctx.arc(erasing.pos[0], erasing.pos[1], ERASE_R[size]||15, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(227,196,238,.22)"; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = "#b39dff"; ctx.stroke();
+  }
+  document.getElementById("zoomLbl").textContent = Math.round(view.s*100)+"%";
+  updateSizeDots();
+  positionPeerTags();
+  drawMinimap();
+}
+const base = document.createElement("canvas");
+const bctx = base.getContext("2d");
+let baseValid = false; const baseView = {x:NaN,y:NaN,s:NaN};
+function renderBase(){
+  if(base.width!==cv.width) base.width=cv.width;
+  if(base.height!==cv.height) base.height=cv.height;
+  const real = ctx;
+  ctx = bctx;              // reuse drawing helpers on the cached layer
+  try{
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.fillStyle = OUTSIDE; ctx.fillRect(0,0,W,H);
+    boardPath(ctx,0); ctx.fillStyle = "#ffffff"; ctx.fill();
+    drawGrid();
+    ctx.save();
+    clipBoard();
+    ctx.setTransform(DPR*view.s,0,0,DPR*view.s,DPR*view.x,DPR*view.y);
+    ctx.lineCap="round"; ctx.lineJoin="round";
+    const [vx0,vy0] = toWorld(0,0), [vx1,vy1] = toWorld(W,H);
+    const minW = 0.35/view.s;  // keep far-zoomed lines faintly visible
+    for(const s of ordered){
+      const c = cached(s), b=c.box, pad=s.w;
+      if(b[2]+pad<vx0 || b[0]-pad>vx1 || b[3]+pad<vy0 || b[1]-pad>vy1) continue;
+      ctx.globalAlpha = (focusUser && s.by!==focusUser) ? 0.12 : 1;
+      strokeIt(s.c,Math.max(s.w,minW),c.path);
+    }
+    ctx.globalAlpha = 1;
+    if(picked && strokes.has(picked.id)){
+      const c = cached(picked);
+      ctx.globalAlpha = 0.5; strokeIt("#b39dff", picked.w + 12/view.s, c.path);
+      ctx.globalAlpha = 1; strokeIt(picked.c, Math.max(picked.w,minW), c.path);
+    }
+    if(gridOn){ ctx.setTransform(DPR,0,0,DPR,0,0); drawSectionLabels(); }
+    ctx.restore();
+    drawEdge();
+  } finally { ctx = real; }
+  baseValid = true; baseView.x=view.x; baseView.y=view.y; baseView.s=view.s;
+}
+function loop(){ if(needDraw) draw(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+function rebuildOrder(){
+  const all = [...strokes.values()];
+  all.sort((a,b)=> (a.t-b.t) || (a.id<b.id?-1:1));
+  ordered = all;
+  // drop peer live strokes that are now saved
+  for(const id of live.keys()) if(strokes.has(id)) live.delete(id);
+  if(pathCache.size > strokes.size + 200){ for(const k of pathCache.keys()) if(!strokes.has(k)) pathCache.delete(k); }
+  if(picked && !strokes.has(picked.id)) picked = null;
+  document.getElementById("metaR").textContent = ordered.length + "本の線";
+  baseValid = false;
+  thumbDirty = true;
+  needDraw = true;
+}
+
+/* ============ MINIMAP ============ */
+const mapEl = document.getElementById("map"), mapCv = document.getElementById("mapCv"), mctx = mapCv.getContext("2d");
+const thumb = document.createElement("canvas"); const tctx = thumb.getContext("2d");
+let thumbDirty = true, thumbAt = 0;
+function setupMapCanvas(){
+  const d = Math.min(window.devicePixelRatio||1, 2.5), px = Math.round(112*d);
+  if(mapCv.width!==px){ mapCv.width = px; mapCv.height = px; thumb.width = px; thumb.height = px; thumbDirty = true; }
+}
+function renderThumb(){
+  const n = thumb.width, k = n/(B.x1-B.x0);
+  tctx.setTransform(1,0,0,1,0,0);
+  tctx.clearRect(0,0,n,n);
+  tctx.fillStyle="#ffffff"; tctx.fillRect(0,0,n,n);
+  tctx.setTransform(k,0,0,k,-B.x0*k,-B.y0*k);
+  tctx.lineCap="round"; tctx.lineJoin="round";
+  for(const s of ordered){ tctx.strokeStyle=s.c; tctx.lineWidth=Math.max(s.w, 1.4/k); tctx.stroke(cached(s).path); }
+  thumbDirty = false; thumbAt = performance.now();
+}
+function drawMinimap(){
+  if(!mapOn) return;
+  setupMapCanvas();
+  if(thumbDirty && performance.now()-thumbAt > 400) renderThumb();
+  else if(thumbDirty) setTimeout(()=>{ needDraw = true; }, 420);
+  const n = mapCv.width, k = n/(B.x1-B.x0), d = n/112;
+  const toM = (x,y) => [(x-B.x0)*k, (y-B.y0)*k];
+  mctx.setTransform(1,0,0,1,0,0);
+  mctx.clearRect(0,0,n,n);
+  mctx.drawImage(thumb,0,0);
+  // sections
+  mctx.strokeStyle = gridOn ? "rgba(185,170,215,.55)" : "rgba(185,170,215,.22)"; mctx.lineWidth = 1;
+  mctx.beginPath();
+  for(let i=1;i<12;i++){ const p=Math.round(i*SECTION*k)+.5; mctx.moveTo(p,0); mctx.lineTo(p,n); mctx.moveTo(0,p); mctx.lineTo(n,p); }
+  mctx.stroke();
+  // gradient frame
+  const g = mctx.createLinearGradient(0,0,n,n); g.addColorStop(0,EDGE_A); g.addColorStop(1,EDGE_B);
+  mctx.strokeStyle = g; mctx.lineWidth = 3*d; mctx.strokeRect(1.5*d,1.5*d,n-3*d,n-3*d);
+  // other people
+  for(const p of peerList){
+    if(p.isMe || p.kind!=="viewer") continue;
+    const pos = p.presence && p.presence.pos;
+    if(!Array.isArray(pos) || pos.length!==2 || !pos.every(v=>typeof v==="number"&&isFinite(v))) continue;
+    const [mx,my] = toM(pos[0],pos[1]);
+    mctx.fillStyle = "#fff"; mctx.beginPath(); mctx.arc(mx,my,4.2*d,0,Math.PI*2); mctx.fill();
+    mctx.fillStyle = isHex(p.presence.col)? p.presence.col : "#3a3550"; mctx.beginPath(); mctx.arc(mx,my,2.8*d,0,Math.PI*2); mctx.fill();
+  }
+  // what I'm looking at
+  const [a0,b0] = toWorld(0,0), [a1,b1] = toWorld(W,H);
+  let [vx0,vy0] = toM(a0,b0), [vx1,vy1] = toM(a1,b1);
+  const minSz = 6*d;
+  if(vx1-vx0 < minSz){ const c=(vx0+vx1)/2; vx0=c-minSz/2; vx1=c+minSz/2; }
+  if(vy1-vy0 < minSz){ const c=(vy0+vy1)/2; vy0=c-minSz/2; vy1=c+minSz/2; }
+  mctx.fillStyle = "rgba(153,204,255,.22)"; mctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);
+  mctx.strokeStyle = "#7aa6ff"; mctx.lineWidth = 2*d; mctx.strokeRect(vx0,vy0,vx1-vx0,vy1-vy0);
+  const [cx,cy] = toWorld(W/2,H/2);
+  document.getElementById("mapSec").textContent = sectionName(cx,cy);
+}
+// tap / drag on the map to move there
+mapEl.addEventListener("pointerdown", e=>{
+  e.preventDefault(); mapEl.setPointerCapture(e.pointerId);
+  const go = ev => {
+    const r = mapCv.getBoundingClientRect();
+    const fx = Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width)), fy = Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height));
+    const wx = B.x0 + fx*(B.x1-B.x0), wy = B.y0 + fy*(B.y1-B.y0);
+    view.x = W/2 - wx*view.s; view.y = H/2 - wy*view.s; needDraw = true;
+  };
+  go(e);
+  const mv = ev => go(ev);
+  const up = () => { mapEl.removeEventListener("pointermove",mv); mapEl.removeEventListener("pointerup",up); mapEl.removeEventListener("pointercancel",up); };
+  mapEl.addEventListener("pointermove",mv); mapEl.addEventListener("pointerup",up); mapEl.addEventListener("pointercancel",up);
+});
+function placeMap(){ const d=document.getElementById("dock").getBoundingClientRect(); document.body.style.setProperty("--dockH",(window.innerHeight-d.top)+"px"); }
+window.addEventListener("resize", placeMap);
+try{ new ResizeObserver(placeMap).observe(document.getElementById("dock")); }catch(_){}
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(placeMap);
+function applyToggles(){
+  document.getElementById("gridBtn").classList.toggle("on", gridOn);
+  document.getElementById("mapBtn").classList.toggle("on", mapOn);
+  mapEl.classList.toggle("open", mapOn);
+  try{ localStorage.setItem("drawroom.grid", gridOn?"1":"0"); localStorage.setItem("drawroom.map", mapOn?"1":"0"); }catch(_){}
+  baseValid = false; needDraw = true;
+}
+document.getElementById("gridBtn").onclick = () => { gridOn = !gridOn; applyToggles(); toast(gridOn ? "グリッドを表示しました（1マス＝1000px）" : "グリッドを隠しました"); };
+document.getElementById("mapBtn").onclick = () => { mapOn = !mapOn; applyToggles(); };
+placeMap(); applyToggles();
+
+/* ============ INPUT ============ */
+const pointers = new Map();   // id -> {x,y}
+let gesture = null;           // {kind:'pan'|'pinch', ...}
+let penStartAt = 0;
+
+function localXY(e){ const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+
+cv.addEventListener("pointerdown", e=>{
+  closeMenu();
+  if(picker.classList.contains("open")){ saveRecent(color); closePicker(); }
+  cv.setPointerCapture(e.pointerId);
+  const [x,y] = localXY(e);
+  pointers.set(e.pointerId,{x,y});
+  if(pointers.size===2){
+    if(erasing) endErase();
+    // second finger: cancel a just-started stroke, else commit it
+    if(cur){ if(performance.now()-penStartAt<220 || cur.p.length<=4) { endInk.sid=cur.id; cur=null; endInk(true); needDraw=true; } else finishStroke(); }
+    startPinch();
+    return;
+  }
+  if(pointers.size>2) return;
+  if(staffMode && tool!=="pan" && e.button!==1 && e.button!==2){ pickAt(x,y); return; }
+  const wantPan = tool==="pan" || e.button===1 || e.button===2;
+  if(wantPan){ gesture={kind:"pan", lx:x, ly:y}; cv.classList.add("panning"); return; }
+  if(!canWrite){ toast("このページは閲覧のみです"); return; }
+  if(tool==="eraser"){ startErase(x,y); return; }
+  startStroke(x,y);
+});
+
+cv.addEventListener("pointermove", e=>{
+  if(!pointers.has(e.pointerId)){ // hover (mouse)
+    if(e.pointerType==="mouse"){ const [x,y]=localXY(e); sendPresence(...toWorld(x,y)); }
+    return;
+  }
+  const [x,y] = localXY(e);
+  pointers.set(e.pointerId,{x,y});
+  if(gesture && gesture.kind==="pinch"){ updatePinch(); return; }
+  if(gesture && gesture.kind==="pan"){ view.x += x-gesture.lx; view.y += y-gesture.ly; gesture.lx=x; gesture.ly=y; needDraw=true; return; }
+  if(cur){
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const r = cv.getBoundingClientRect();
+    for(const ev of evs){ addPoint(ev.clientX-r.left, ev.clientY-r.top); }
+  }
+  if(erasing) eraseMove(x,y);
+});
+
+function upHandler(e){
+  if(!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if(gesture && gesture.kind==="pinch"){
+    if(pointers.size===1){ const [p]=pointers.values(); gesture={kind:"pan", lx:p.x, ly:p.y, fromPinch:true}; }
+    else if(pointers.size===0) gesture=null;
+    return;
+  }
+  if(gesture && gesture.kind==="pan"){ if(pointers.size===0){ gesture=null; cv.classList.remove("panning"); } return; }
+  if(cur && pointers.size===0) finishStroke();
+  if(erasing && pointers.size===0) endErase();
+}
+cv.addEventListener("pointerup", upHandler);
+cv.addEventListener("pointercancel", upHandler);
+cv.addEventListener("contextmenu", e=>e.preventDefault());
+
+function startPinch(){
+  const [a,b] = [...pointers.values()];
+  const [wx,wy] = toWorld((a.x+b.x)/2,(a.y+b.y)/2);
+  gesture = { kind:"pinch", d0: Math.hypot(a.x-b.x,a.y-b.y)||1, s0: view.s, wx, wy };
+}
+function updatePinch(){
+  const pts=[...pointers.values()]; if(pts.length<2) return;
+  const [a,b]=pts;
+  const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+  const d=Math.hypot(a.x-b.x,a.y-b.y)||1;
+  view.s = Math.min(MAX_SCALE,Math.max(MIN_SCALE, gesture.s0*d/gesture.d0));
+  view.x = mx - gesture.wx*view.s; view.y = my - gesture.wy*view.s;
+  needDraw = true;
+}
+
+cv.addEventListener("wheel", e=>{
+  e.preventDefault();
+  const [x,y]=localXY(e);
+  if(e.ctrlKey || e.metaKey){
+    zoomAt(x,y, Math.exp(-e.deltaY*0.01));
+  } else {
+    view.x -= e.deltaX; view.y -= e.deltaY; needDraw=true;
+  }
+},{passive:false});
+function zoomAt(x,y,f){
+  const [wx,wy]=toWorld(x,y);
+  view.s = Math.min(MAX_SCALE,Math.max(MIN_SCALE,view.s*f));
+  view.x = x-wx*view.s; view.y = y-wy*view.s; needDraw=true;
+}
+// keep iOS from page-zooming
+document.addEventListener("gesturestart", e=>e.preventDefault());
+document.addEventListener("dblclick", e=>e.preventDefault());
+
+/* ============ STROKES ============ */
+function startStroke(x,y){
+  const [wx,wy]=toWorld(x,y);
+  if(!inBounds(wx,wy)){ toast("キャンバスの外です"); return; }
+  // pen width is fixed on the canvas, so on-screen thickness follows the zoom
+  const w = size;
+  cur = { id: strokeId(), c: color, w: r1(Math.max(0.5,Math.min(200,w))), p:[r1(wx),r1(wy)], t: Date.now(), by: myUid };
+  cur.sent = 0;
+  penStartAt = performance.now();
+  startInk();
+  needDraw = true;
+  sendPresence(wx,wy,true);
+}
+function addPoint(x,y){
+  let [wx,wy]=toWorld(x,y);
+  wx = clampX(wx); wy = clampY(wy);
+  const p=cur.p, lx=p[p.length-2], ly=p[p.length-1];
+  if(Math.hypot(wx-lx,wy-ly) < 1.6/view.s) return;
+  p.push(r1(wx),r1(wy));
+  needDraw = true;
+  sendPresence(wx,wy,true);
+  if(p.length/2 >= MAX_PTS){
+    // split long stroke seamlessly
+    const last=[p[p.length-2],p[p.length-1]];
+    const keep={c:cur.c,w:cur.w};
+    finishStroke(true);
+    cur = { id: strokeId(), c:keep.c, w:keep.w, p:[...last], t:Date.now(), by:myUid, sent:0 };
+    startInk();
+  }
+}
+function finishStroke(silentPresence){
+  if(!cur) return;
+  const s = { id:cur.id, c:cur.c, w:cur.w, p:cur.p.slice(), t:cur.t, by:myUid };
+  flushInk(true);
+  cur = null;
+  strokes.set(s.id, s);
+  undoStack.push({ type:"add", id:s.id });
+  if(undoStack.length>200) undoStack.shift();
+  rebuildOrder();
+  if(!silentPresence) sendPresence(s.p[s.p.length-2], s.p[s.p.length-1], false);
+  api.addStroke(s).catch(err=>{
+    strokes.delete(s.id); rebuildOrder();
+    failed(err, "線を保存できませんでした");
+  });
+}
+
+/* ---- eraser: rubs out only the part it touches, on lines I drew (staff: any line) ---- */
+const ERASE_R = { 3: 9, 8: 15, 22: 28 };   // radius on screen, px
+const isMine = s => !!myUid && s.by === myUid;
+const canErase = s => isMine(s) || isAdmin;
+function startErase(x,y){
+  const [wx,wy] = toWorld(x,y);
+  // removed: saved lines touched in this rub (id -> line); added: pieces left (id -> piece with src = its saved line)
+  erasing = { pos:[x,y], last:[wx,wy], warned:false, removed:new Map(), added:new Map() };
+  eraseAround(wx,wy);
+  sendPresence(wx,wy,true);
+  needDraw = true;
+}
+function eraseMove(x,y){
+  const [wx,wy] = toWorld(x,y);
+  const [lx,ly] = erasing.last;
+  const r = (ERASE_R[size]||15)/view.s;
+  const n = Math.max(1, Math.ceil(Math.hypot(wx-lx,wy-ly)/(r*0.5)));
+  for(let i=1;i<=n;i++) eraseAround(lx+(wx-lx)*i/n, ly+(wy-ly)*i/n);
+  erasing.last = [wx,wy]; erasing.pos = [x,y];
+  sendPresence(wx,wy,true);
+  needDraw = true;
+}
+function endErase(){
+  if(!erasing) return;
+  const e = erasing; erasing = null; needDraw = true;
+  sendPresence(e.last[0], e.last[1], false);
+  if(!e.removed.size) return;
+  // save the whole rub at once
+  const removedIds = [...e.removed.keys()];
+  const pieces = [...e.added.values()];
+  api.eraseStrokes(removedIds, pieces.map(p => ({ id:p.id, p:p.p, src:p.src }))).then(()=>{
+    undoStack.push({ type:"rub", trash: removedIds, added: pieces.map(p=>p.id) });
+    if(undoStack.length>200) undoStack.shift();
+  }).catch(err=>{
+    for(const p of pieces) strokes.delete(p.id);
+    for(const s of e.removed.values()) strokes.set(s.id, s);
+    rebuildOrder();
+    failed(err, "消せませんでした");
+  });
+}
+function segDist(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay, L=dx*dx+dy*dy;
+  let t = L ? ((px-ax)*dx+(py-ay)*dy)/L : 0; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+dx*t), py-(ay+dy*t));
+}
+// cut the part of a line within reach of the eraser; returns the pieces left, or null if untouched
+function cutStroke(s, cx, cy, r){
+  const p = s.p, T = r + s.w/2, step = Math.max(0.4, Math.min(r*0.3, T*0.3));
+  const pts = [];
+  if(p.length===2){ pts.push(p[0],p[1]); }
+  else for(let i=0;i<p.length-2;i+=2){
+    const ax=p[i], ay=p[i+1], bx=p[i+2], by=p[i+3];
+    if(i===0) pts.push(ax,ay);
+    if(segDist(cx,cy,ax,ay,bx,by) < T + step){
+      const k = Math.max(1, Math.ceil(Math.hypot(bx-ax,by-ay)/step));
+      for(let j=1;j<k;j++) pts.push(ax+(bx-ax)*j/k, ay+(by-ay)*j/k);
+    }
+    pts.push(bx,by);
+  }
+  let hit=false; const keep=[];
+  for(let i=0;i<pts.length;i+=2){ const inside = Math.hypot(pts[i]-cx,pts[i+1]-cy) < T; keep.push(!inside); if(inside) hit=true; }
+  if(!hit) return null;
+  const pieces=[]; let run=[];
+  const flush=()=>{ if(run.length>=4) pieces.push(run.map(r1)); run=[]; };
+  for(let k=0;k<keep.length;k++){ if(keep[k]) run.push(pts[2*k],pts[2*k+1]); else flush(); }
+  flush();
+  return pieces.map(pp => ({ id: strokeId(), c:s.c, w:s.w, p:pp, t:s.t, by:s.by }));
+}
+function touches(s, wx, wy, pad){
+  if(s.p.length===2) return Math.hypot(wx-s.p[0],wy-s.p[1]) < pad;
+  for(let k=0;k<s.p.length-2;k+=2) if(segDist(wx,wy,s.p[k],s.p[k+1],s.p[k+2],s.p[k+3]) < pad) return true;
+  return false;
+}
+function eraseAround(wx,wy){
+  const r = (ERASE_R[size]||15)/view.s;
+  let changed = false, others = false;
+  for(let i=ordered.length-1;i>=0;i--){
+    const s = ordered[i], b = cached(s).box, pad = r + s.w/2;
+    if(wx < b[0]-pad || wx > b[2]+pad || wy < b[1]-pad || wy > b[3]+pad) continue;
+    if(!canErase(s)){ if(touches(s,wx,wy,pad)) others = true; continue; }
+    const pieces = cutStroke(s, wx, wy, r);
+    if(!pieces) continue;
+    // a piece cut again in the same rub keeps the saved line it came from
+    let src;
+    if(erasing.added.has(s.id)){ src = erasing.added.get(s.id).src; erasing.added.delete(s.id); }
+    else { src = s.id; erasing.removed.set(s.id, s); }
+    strokes.delete(s.id); pathCache.delete(s.id);
+    for(const pc of pieces){ pc.src = src; strokes.set(pc.id, pc); erasing.added.set(pc.id, pc); }
+    changed = true;
+  }
+  if(changed) rebuildOrder();
+  else if(others && !erasing.warned){ erasing.warned = true; toast("ほかの人の線は消せません"); }
+}
+
+function undo(){
+  const u = undoStack.pop();
+  if(!u){ toast("もどせる操作がありません"); return; }
+  if(u.type === "add"){
+    const s = strokes.get(u.id);
+    if(!s){ undo(); return; }                    // already gone (erased or removed by staff)
+    strokes.delete(u.id); rebuildOrder();
+    api.deleteStroke(u.id).catch(err=>{ strokes.set(s.id, s); rebuildOrder(); failed(err, "もどせませんでした"); });
+    return;
+  }
+  if(u.type === "rub"){
+    api.restoreStrokes(u.trash, u.added).then(rows=>{
+      for(const id of u.added){ strokes.delete(id); pathCache.delete(id); }
+      for(const s of rows) strokes.set(s.id, s);
+      rebuildOrder();
+    }).catch(err=>failed(err, "もどせませんでした"));
+  }
+}
+
+/* ---- realtime ink (room) ---- */
+let inkTimer = null;
+function startInk(){
+  if(!api) return;
+  clearInterval(inkTimer);
+  inkTimer = setInterval(()=>flushInk(false), 150);
+}
+function flushInk(final){
+  if(!api || !cur){ if(final) clearInterval(inkTimer); return; }
+  const from = cur.sent;
+  const pts = cur.p.slice(from);
+  if(pts.length || final){
+    // chunk to stay well under 4KiB
+    for(let i=0;i<pts.length || (i===0 && final);i+=300){
+      const chunk = pts.slice(i,i+300);
+      const isLast = i+300>=pts.length;
+      api.sendInk({ sid:cur.id, c:cur.c, w:cur.w, i:from+i, p:chunk, end: final && isLast });
+      if(!pts.length) break;
+    }
+    cur.sent = cur.p.length;
+  }
+  if(final) clearInterval(inkTimer);
+}
+function endInk(cancel){
+  clearInterval(inkTimer);
+  if(cancel && api && endInk.sid) api.sendInk({ sid:endInk.sid, c:"#111111", w:1, i:0, p:[], end:true, x:1 });
+}
+
+function onInk(msg){
+  if(msg.sameTab) return;
+  const d = msg.data; if(!d || typeof d!=="object") return;
+  if(typeof d.sid!=="string" || d.sid.length>40 || !isHex(d.c)) return;
+  const w = Number(d.w); if(!(w>=0.5&&w<=200)) return;
+  if(!Array.isArray(d.p) || d.p.length%2) return;
+  for(const v of d.p) if(typeof v!=="number"||!isFinite(v)) return;
+  if(pathCache.has(d.sid)) return; // already committed
+  if(d.x){ live.delete(d.sid); needDraw=true; return; } // cancelled stroke
+  let l = live.get(d.sid);
+  if(!l){ l={c:d.c,w,p:[],at:Date.now(),peer:msg.peer}; live.set(d.sid,l); }
+  const i = Number(d.i)||0;
+  if(i <= l.p.length){ l.p.length = Math.min(l.p.length, i); l.p.push(...d.p); }
+  else { l.p.push(...d.p); }
+  l.at = Date.now();
+  if(d.end) l.done = true;
+  needDraw = true;
+}
+// clear stale live strokes
+setInterval(()=>{
+  const now=Date.now(); let ch=false;
+  for(const [k,l] of live){
+    const limit = 15000;
+    if((l.done && now-l.at>limit) || (!l.done && now-l.at>30000)){ live.delete(k); ch=true; }
+  }
+  if(ch) needDraw=true;
+}, 3000);
+
+/* ---- presence ---- */
+let lastPres = 0, presPending = null;
+function sendPresence(wx,wy,drawing){
+  if(!api || !me) return;
+  presPending = { pos: wx==null? null : [r1(wx),r1(wy)], col: tool==="eraser"? "#b8b3c8" : color, d: !!drawing, uid: myUid };
+  const now=performance.now();
+  if(now-lastPres>120){ lastPres=now; api.setPresence(presPending); presPending=null; }
+  else { clearTimeout(sendPresence._t); sendPresence._t=setTimeout(()=>{ if(presPending){ api.setPresence(presPending); presPending=null; lastPres=performance.now(); } },130); }
+}
+
+const names = new Map();
+async function resolveNames(ids){
+  if(!api || !ids.length) return;
+  try{
+    const ps = await api.profiles(ids);
+    for(const id of ids){ const p = ps && ps[id]; names.set(id, (p && p.name) || "Someone"); }
+  }catch(_){}
+}
+
+let peerList = [];
+const tagEls = new Map();
+let peopleNow = [];
+function renderPeers(){
+  const ids = [];
+  const byUser = new Map();
+  for(const p of peerList){
+    if(p.kind!=="viewer") continue;
+    const pr = p.presence||{};
+    const uid = p.by || (typeof pr.uid==="string" ? pr.uid : null) || p.peer;
+    if(uid && !names.has(uid) && (p.by||pr.uid)) ids.push(uid);
+    const pos = Array.isArray(pr.pos) && pr.pos.length===2 && pr.pos.every(v=>typeof v==="number"&&isFinite(v)) ? pr.pos : null;
+    const prev = byUser.get(uid);
+    if(!prev) byUser.set(uid,{uid, me:p.isMe, pos, at:p.updatedAt||0});
+    else { if(p.isMe) prev.me=true; if(pos && (p.updatedAt||0)>=prev.at){ prev.pos=pos; prev.at=p.updatedAt||0; } }
+  }
+  const people = [...byUser.values()].sort((a,b)=> (b.me-a.me) || (b.at-a.at));
+  peopleNow = people;
+  if(ids.length) resolveNames([...new Set(ids)]).then(()=>{ drawAvatars(peopleNow); refreshTags(); renderPeopleList(); });
+  drawAvatars(people);
+  refreshTags();
+  renderPeopleList();
+}
+const peopleBox = document.getElementById("people");
+function renderPeopleList(){
+  if(!peopleBox.classList.contains("open")) return;
+  peopleBox.innerHTML = "";
+  const hd = document.createElement("div"); hd.className="hd";
+  const a=document.createElement("span"); a.textContent="いまいる人";
+  const b=document.createElement("span"); b.textContent=Math.max(1,peopleNow.length)+"人";
+  hd.append(a,b); peopleBox.appendChild(hd);
+  const list = peopleNow.length ? peopleNow : [{uid:myUid||"me", me:true, pos:null}];
+  for(const pp of list){
+    const btn=document.createElement("button");
+    const av=document.createElement("div"); av.className="av"; av.style.background=hashColor(pp.uid);
+    const nm0 = names.get(pp.uid); av.textContent = nm0 && nm0!=="Someone" ? [...nm0][0] : "?";
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=displayName(pp.uid, pp.me);
+    const sm=document.createElement("small"); sm.textContent = pp.me ? "じぶん" : (pp.pos ? "見に行く →" : "まだ描いてない");
+    btn.append(av,nm,sm);
+    if(pp.me || !pp.pos) btn.disabled = true;
+    else btn.onclick=()=>{ peopleBox.classList.remove("open"); jumpTo(pp.pos[0],pp.pos[1]); };
+    peopleBox.appendChild(btn);
+  }
+}
+function jumpTo(wx,wy){
+  if(view.s<0.6) view.s=1;
+  view.x = W/2 - wx*view.s; view.y = H/2 - wy*view.s; needDraw=true;
+}
+document.getElementById("online").addEventListener("click", e=>{
+  e.stopPropagation(); closeMenu();
+  peopleBox.classList.toggle("open"); renderPeopleList();
+});
+function displayName(uid, me){ const n = names.get(uid) || "Someone"; return me ? n+"（あなた）" : n; }
+function drawAvatars(people){
+  document.getElementById("onlineNum").textContent = Math.max(1, people.length);
+  const box = document.getElementById("avatars"); box.innerHTML="";
+  people.slice(0,3).forEach(pp=>{
+    const d=document.createElement("div"); d.className="av";
+    const nm = names.get(pp.uid) || "?";
+    d.textContent = (nm && nm!=="Someone") ? [...nm][0] : "?";
+    d.style.background = hashColor(pp.uid);
+    d.title = displayName(pp.uid, pp.me);
+    if(pp.me) d.style.borderColor="#a9d3ff";
+    box.appendChild(d);
+  });
+}
+function refreshTags(){
+  const layer = document.getElementById("peers-layer");
+  const alive = new Set();
+  for(const p of peerList){
+    if(p.isMe || p.kind!=="viewer") continue;
+    const pr = p.presence||{};
+    if(!Array.isArray(pr.pos) || pr.pos.length!==2 || !pr.pos.every(v=>typeof v==="number"&&isFinite(v))) continue;
+    alive.add(p.peer);
+    let el = tagEls.get(p.peer);
+    if(!el){ el=document.createElement("div"); el.className="peer-tag"; el.innerHTML="<i></i><span></span>"; layer.appendChild(el); tagEls.set(p.peer,el); }
+    const uid = p.by || pr.uid || p.peer;
+    el.querySelector("span").textContent = names.get(uid) || "Someone";
+    el.querySelector("i").style.background = isHex(pr.col)? pr.col : "#111";
+    el._pos = pr.pos; el._at = p.updatedAt;
+  }
+  for(const [k,el] of tagEls) if(!alive.has(k)){ el.remove(); tagEls.delete(k); }
+  positionPeerTags();
+}
+function positionPeerTags(){
+  const now = Date.now();
+  for(const el of tagEls.values()){
+    if(!el._pos) continue;
+    const [sx,sy] = toScreen(el._pos[0], el._pos[1]);
+    el.style.transform = `translate(${Math.round(sx-5)}px,${Math.round(sy-5)}px)`;
+    el.style.opacity = (now-(el._at||now) > 6000) ? "0" : "1";
+  }
+}
+setInterval(positionPeerTags, 1500);
+
+/* ============ UI ============ */
+const colorsBox = document.getElementById("colors");
+function selectSwatch(btn){ document.querySelectorAll(".sw").forEach(x=>x.classList.toggle("on",x===btn)); if(tool!=="pen") setTool("pen"); }
+// custom colour swatch (opens the picker)
+const customBtn=document.createElement("button");
+customBtn.className="sw custom"; customBtn.setAttribute("aria-label","すきな色をえらぶ");
+customBtn.innerHTML="<i>+</i>";
+colorsBox.appendChild(customBtn);
+COLORS.forEach((c,i)=>{
+  const b=document.createElement("button"); b.className="sw"+(i===0?" on":""); b.style.background=c; b.setAttribute("aria-label","色 "+c);
+  b.onclick=()=>{ color=c; selectSwatch(b); closePicker(); };
+  colorsBox.appendChild(b);
+});
+
+/* ---- colour picker ---- */
+const picker=document.getElementById("picker");
+const pk={ h:330, s:.45, v:1 };
+let customColor=null;
+function hsvToHex(h,s,v){
+  const f=n=>{ const k=(n+h/60)%6; return v - v*s*Math.max(0,Math.min(k,4-k,1)); };
+  return "#"+[f(5),f(3),f(1)].map(x=>Math.round(x*255).toString(16).padStart(2,"0")).join("");
+}
+function hexToHsv(hex){
+  const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0; if(d){ if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0) h+=360; }
+  return { h, s: mx? d/mx : 0, v: mx };
+}
+function pkHexNow(){ return hsvToHex(pk.h,pk.s,pk.v); }
+function paintPicker(updateInput){
+  const sv=document.getElementById("pkSV");
+  sv.style.background="hsl("+pk.h+",100%,50%)";
+  const k=document.getElementById("pkSVk");
+  k.style.left=(pk.s*100)+"%"; k.style.top=((1-pk.v)*100)+"%"; k.style.background=pkHexNow();
+  const hk=document.getElementById("pkHuek");
+  hk.style.left=(pk.h/360*100)+"%"; hk.style.background="hsl("+pk.h+",100%,50%)";
+  document.getElementById("pkPrev").style.background=pkHexNow();
+  if(updateInput!==false) document.getElementById("pkHex").value=pkHexNow().toUpperCase();
+}
+function dragArea(el, fn){
+  el.addEventListener("pointerdown", e=>{
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const go=ev=>{ const r=el.getBoundingClientRect(); fn(Math.min(1,Math.max(0,(ev.clientX-r.left)/r.width)), Math.min(1,Math.max(0,(ev.clientY-r.top)/r.height))); paintPicker(); applyLive(); };
+    go(e);
+    const mv=ev=>go(ev);
+    const up=()=>{ el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up); };
+    el.addEventListener("pointermove",mv); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up);
+  });
+}
+dragArea(document.getElementById("pkSV"), (x,y)=>{ pk.s=x; pk.v=1-y; });
+dragArea(document.getElementById("pkHue"), (x)=>{ pk.h=Math.min(359.9,x*360); });
+function applyLive(){ setCustom(pkHexNow()); }
+function setCustom(hex){
+  customColor=hex; color=hex;
+  customBtn.classList.add("has");
+  customBtn.querySelector("i").style.background=hex;
+  selectSwatch(customBtn);
+}
+document.getElementById("pkHex").addEventListener("input", e=>{
+  let v=e.target.value.trim(); if(v && v[0]!=="#") v="#"+v;
+  if(/^#[0-9a-fA-F]{6}$/.test(v)){ Object.assign(pk, hexToHsv(v.toLowerCase())); paintPicker(false); applyLive(); }
+});
+function loadRecent(){ try{ const a=JSON.parse(localStorage.getItem("drawroom.recent")||"[]"); return Array.isArray(a)? a.filter(isHex).slice(0,8) : []; }catch(_){ return []; } }
+function saveRecent(hex){ const a=[hex,...loadRecent().filter(x=>x.toLowerCase()!==hex.toLowerCase())].slice(0,8); try{ localStorage.setItem("drawroom.recent",JSON.stringify(a)); }catch(_){} renderRecent(a); }
+function renderRecent(list){
+  const box=document.getElementById("pkRecent"); box.innerHTML="";
+  const arr=list||loadRecent();
+  const lab=document.createElement("span"); lab.textContent= arr.length? "さいきん使った色" : "えらんだ色はここに残ります"; box.appendChild(lab);
+  arr.forEach(hex=>{ const b=document.createElement("button"); b.style.background=hex; b.setAttribute("aria-label",hex);
+    b.onclick=()=>{ Object.assign(pk,hexToHsv(hex)); paintPicker(); applyLive(); }; box.appendChild(b); });
+}
+function placePicker(){ const d=document.getElementById("dock").getBoundingClientRect(); picker.style.bottom=(window.innerHeight-d.top+10)+"px"; }
+function openPicker(){
+  closeMenu(); peopleBox.classList.remove("open");
+  if(customColor) Object.assign(pk,hexToHsv(customColor));
+  placePicker(); paintPicker(); renderRecent(); picker.classList.add("open"); applyLive();
+}
+function closePicker(){ picker.classList.remove("open"); }
+customBtn.onclick=()=>{ picker.classList.contains("open") ? closePicker() : openPicker(); };
+document.getElementById("pkClose").onclick=closePicker;
+document.getElementById("pkOk").onclick=()=>{ setCustom(pkHexNow()); saveRecent(pkHexNow()); closePicker(); };
+window.addEventListener("resize", ()=>{ if(picker.classList.contains("open")) placePicker(); });
+function setTool(t){
+  tool=t;
+  document.querySelectorAll(".tool[data-tool]").forEach(x=>x.classList.toggle("on",x.dataset.tool===t));
+  cv.classList.toggle("pan", t==="pan");
+}
+document.querySelectorAll(".tool[data-tool]").forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+// size buttons preview the actual on-screen thickness at the current zoom
+let lastDotScale = -1;
+function updateSizeDots(){
+  if(view.s===lastDotScale) return; lastDotScale=view.s;
+  document.querySelectorAll(".size").forEach(b=>{
+    const d = Math.max(2, Math.min(30, Number(b.dataset.size)*view.s));
+    const i=b.querySelector("i"); i.style.width=d+"px"; i.style.height=d+"px";
+  });
+}
+document.querySelectorAll(".size").forEach(b=>b.onclick=()=>{ size=Number(b.dataset.size); document.querySelectorAll(".size").forEach(x=>x.classList.toggle("on",x===b)); });
+document.getElementById("undoBtn").onclick=undo;
+
+const menu=document.getElementById("menu");
+function closeMenu(){ menu.classList.remove("open"); }
+document.getElementById("menuBtn").onclick=(e)=>{ e.stopPropagation(); peopleBox.classList.remove("open"); menu.classList.toggle("open"); };
+document.addEventListener("pointerdown", e=>{ if(!peopleBox.contains(e.target) && !e.target.closest("#online")) peopleBox.classList.remove("open"); if(!menu.contains(e.target) && e.target.id!=="menuBtn" && !e.target.closest("#menuBtn")) closeMenu(); });
+function home(){ view.s=1; view.x=W/2; view.y=H/2; needDraw=true; }
+function fit(){
+  if(!ordered.length){ home(); toast("まだ何も描かれていません"); return; }
+  let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
+  for(const s of ordered){ const bx=cached(s).box; a=Math.min(a,bx[0]-s.w); b=Math.min(b,bx[1]-s.w); c=Math.max(c,bx[2]+s.w); d=Math.max(d,bx[3]+s.w); }
+  const top=70, bottom=150, side=24;
+  const aw=Math.max(50,W-side*2), ah=Math.max(50,H-top-bottom);
+  view.s=Math.min(MAX_SCALE,Math.max(MIN_SCALE,Math.min(aw/Math.max(1,c-a), ah/Math.max(1,d-b))));
+  view.x = side + (aw-(c-a)*view.s)/2 - a*view.s;
+  view.y = top + (ah-(d-b)*view.s)/2 - b*view.s;
+  needDraw=true;
+}
+document.getElementById("fitBtn").onclick=fit;
+document.getElementById("mFit").onclick=()=>{ closeMenu(); fit(); };
+document.getElementById("mBoard").onclick=()=>{
+  closeMenu();
+  const top=70,bottom=150,side=24, aw=Math.max(50,W-side*2), ah=Math.max(50,H-top-bottom);
+  view.s=Math.max(MIN_SCALE,Math.min(aw/(B.x1-B.x0), ah/(B.y1-B.y0)));
+  view.x = side + aw/2 - (B.x0+B.x1)/2*view.s;
+  view.y = top + ah/2 - (B.y0+B.y1)/2*view.s;
+  needDraw=true;
+};
+document.getElementById("mHome").onclick=()=>{ closeMenu(); home(); };
+document.getElementById("mReset").onclick=()=>{ closeMenu(); zoomAt(W/2,H/2,1/view.s); };
+
+const scrim=document.getElementById("scrim");
+document.getElementById("mClear").onclick=()=>{ closeMenu(); scrim.classList.add("open"); };
+document.getElementById("dNo").onclick=()=>scrim.classList.remove("open");
+document.getElementById("dYes").onclick=async ()=>{
+  scrim.classList.remove("open");
+  toast("消しています…");
+  try{ await api.clearAll(); strokes.clear(); undoStack.length=0; rebuildOrder(); toast("キャンバスを白紙にしました"); }
+  catch(err){ failed(err, "消せませんでした"); }
+};
+document.getElementById("mLogout").onclick=async ()=>{
+  closeMenu();
+  try{ await api.signOut(); }catch(_){}
+  location.reload();
+};
+
+function applyWriteState(){
+  document.querySelectorAll(".tool[data-tool='pen'],.tool[data-tool='eraser'],#undoBtn").forEach(b=>b.disabled=!canWrite);
+  if(!canWrite) setTool("pan");
+  document.getElementById("mClear").style.display = isAdmin ? "" : "none";
+  document.getElementById("staffBtn").style.display = isAdmin ? "grid" : "none";
+}
+
+/* ============ ERRORS ============ */
+function errText(err){ return String((err && (err.message || err.error_description || err.code)) || err || ""); }
+function failed(err, msg){
+  const t = errText(err);
+  if(/not_member|JWT|jwt|401/.test(t)){ toast("ログインの確認が切れました。読み込み直します", 3000); setTimeout(()=>location.reload(), 2500); return; }
+  if(/not_allowed/.test(t)){ toast("ほかの人の線は消せません"); return; }
+  if(/not_staff/.test(t)){ toast("運営だけができる操作です"); return; }
+  toast(msg, 3000);
+}
+
+/* ============ DATES ============ */
+function fmtDate(v){
+  if(v===null || v===undefined || v==="") return "";
+  const d = new Date(typeof v==="number" ? v : String(v));
+  if(isNaN(d)) return "";
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ============ GATE (login and other full screens) ============ */
+const gateEl = document.getElementById("gate"), gateBody = document.getElementById("gateBody");
+document.getElementById("gateLogo").src = document.querySelector(".brand img").src;
+function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; }
+function btn(text, cls, fn){ const b=el("button", "g-btn "+(cls||""), text); b.onclick=fn; return b; }
+function gate(state, info){
+  info = info || {};
+  gateEl.classList.add("open");
+  gateBody.innerHTML = "";
+  const add = n => gateBody.appendChild(n);
+  const signIn = async ()=>{ try{ await api.signIn(); }catch(err){ toast("ログインを始められませんでした"); } };
+  switch(state){
+    case "loading":
+      add(el("p","g-note", info.text || "読み込み中…")); break;
+    case "signed_out":
+      add(el("p","g-text","LinearのDiscordサーバーにいるライバーと運営だけが入れます。"));
+      add(btn("Discordでログイン","primary",signIn)); break;
+    case "expired":
+      add(el("p","g-text","確認の期限が切れたので、もう一度ログインしてください。"));
+      add(btn("Discordでログイン","primary",signIn)); break;
+    case "denied": {
+      const why = {
+        not_in_guild: "LinearのDiscordサーバーに参加しているアカウントでログインしてください。",
+        no_role: "このアカウントには、おえかきルームに入るためのロールがありません。運営に確認してください。"
+      }[info.reason] || "ログインを確認できませんでした。時間をおいて、もう一度試してください。";
+      add(el("p","g-text",why));
+      add(btn("別のアカウントでログイン","primary", async ()=>{ try{ await api.signOut(); }catch(_){} signIn(); }));
+      add(btn("ログアウト","", async ()=>{ try{ await api.signOut(); }catch(_){} location.reload(); }));
+      break;
+    }
+    case "need_iriam": {
+      add(el("p","g-text","はじめに、IRIAMのIDを入力してください。運営が本人確認に使います。"));
+      const inp = el("input","g-input"); inp.placeholder="IRIAMのID"; inp.maxLength=64; inp.autocomplete="off";
+      add(inp);
+      const go = btn("はじめる","primary", async ()=>{
+        const v = inp.value.trim();
+        if(!v){ inp.focus(); toast("IRIAMのIDを入力してください"); return; }
+        go.disabled = true;
+        try{ await api.setIriam(v); handleStatus(await api.status()); }
+        catch(err){ go.disabled=false; failed(err, "登録できませんでした"); }
+      });
+      add(go); setTimeout(()=>inp.focus(), 50);
+      break;
+    }
+    case "banned":
+      add(el("p","g-title2","利用停止中です"));
+      if(info.reason) add(el("p","g-text","理由：" + info.reason));
+      add(el("p","g-text", info.until ? ("期限：" + fmtDate(info.until) + " まで") : "期限：なし"));
+      add(btn("ログアウト","", async ()=>{ try{ await api.signOut(); }catch(_){} location.reload(); }));
+      break;
+    case "demo_login": {
+      add(el("p","g-text","デモモードです（Supabaseにつながっていません）。この端末の中だけで試せます。"));
+      const inp = el("input","g-input"); inp.placeholder="表示名"; inp.value="デモユーザー"; inp.maxLength=32;
+      add(inp);
+      const enterAs = role => async ()=>{ await api.demoLogin(inp.value.trim() || "デモユーザー", role); handleStatus(await api.status()); };
+      add(btn("ライバーとして入る","primary", enterAs("liver")));
+      add(btn("運営として入る","", enterAs("staff")));
+      add(el("p","g-note","別のタブでも開くと、同時に描く動きや警告・BANも試せます。"));
+      break;
+    }
+    default:
+      add(el("p","g-text","つながりませんでした。時間をおいて、もう一度試してください。"));
+      if(info.message) add(el("p","g-note", info.message));
+      add(btn("もう一度試す","primary", ()=>location.reload()));
+  }
+}
+function hideGate(){ gateEl.classList.remove("open"); }
+
+function handleStatus(st){
+  switch(st && st.state){
+    case "ready": enter(st); break;
+    case "signed_out": case "demo_login": case "denied": case "expired": case "banned": case "need_iriam":
+      gate(st.state, st); break;
+    default: gate("error", st);
+  }
+}
+
+/* ============ WARNINGS ============ */
+const warnQueue = []; const warnEl = document.getElementById("warn");
+function queueWarnings(list){
+  for(const w of list || []) if(w && !warnQueue.some(x=>x.id===w.id)) warnQueue.push(w);
+  showWarning();
+}
+function showWarning(){
+  if(warnEl.classList.contains("open") || !warnQueue.length) return;
+  const w = warnQueue[0];
+  document.getElementById("warnMsg").textContent = String(w.message || "");
+  document.getElementById("warnDate").textContent = fmtDate(w.created_at);
+  warnEl.classList.add("open");
+}
+document.getElementById("warnOk").onclick = async ()=>{
+  const w = warnQueue.shift();
+  warnEl.classList.remove("open");
+  if(w) try{ await api.ackWarning(w.id); }catch(_){}
+  showWarning();
+};
+
+/* ============ STAFF ============ */
+const staffEl = document.getElementById("staff"), staffBody = document.getElementById("staffBody");
+let staffTab = "line", memberRows = [], memberMap = new Map();
+async function loadMembers(){
+  try{ memberRows = await api.members(); memberMap = new Map(memberRows.map(m=>[m.user_id, m])); }
+  catch(err){ failed(err, "メンバーを読み込めませんでした"); }
+}
+function setStaffMode(on){
+  staffMode = on;
+  document.getElementById("staffBtn").classList.toggle("on", on);
+  staffEl.classList.toggle("open", on);
+  document.getElementById("dock").style.display = on ? "none" : "";
+  if(!on){ picked = null; focusUser = null; baseValid = false; needDraw = true; }
+  else { loadMembers().then(renderStaff); renderStaff(); }
+  placeMap();
+}
+document.getElementById("staffBtn").onclick = ()=> setStaffMode(!staffMode);
+document.getElementById("staffClose").onclick = ()=> setStaffMode(false);
+document.querySelectorAll(".st-tab").forEach(b=> b.onclick = async ()=>{
+  staffTab = b.dataset.tab;
+  document.querySelectorAll(".st-tab").forEach(x=>x.classList.toggle("on", x===b));
+  if(staffTab==="members") await loadMembers();
+  renderStaff();
+});
+function pickAt(x,y){
+  const [wx,wy] = toWorld(x,y), tol = 10/view.s;
+  picked = null;
+  for(let i=ordered.length-1;i>=0;i--){
+    const s = ordered[i], b = cached(s).box, pad = s.w/2 + tol;
+    if(wx < b[0]-pad || wx > b[2]+pad || wy < b[1]-pad || wy > b[3]+pad) continue;
+    if(focusUser && s.by !== focusUser) continue;
+    if(touches(s, wx, wy, pad)){ picked = s; break; }
+  }
+  baseValid = false; needDraw = true;
+  staffTab = "line";
+  document.querySelectorAll(".st-tab").forEach(x=>x.classList.toggle("on", x.dataset.tab==="line"));
+  renderStaff();
+}
+const roleName = r => r==="staff" ? "運営" : "ライバー";
+function memberCard(m, stroke){
+  const box = el("div","st-card");
+  const head = el("div","st-head");
+  const av = el("div","av"); av.style.background = hashColor(m.user_id); av.textContent = [...(m.display_name||"?")][0] || "?";
+  const nm = el("div","st-name", m.display_name || "名前なし");
+  head.append(av, nm);
+  if(m.banned) head.appendChild(el("span","st-badge ban","BAN中"));
+  box.appendChild(head);
+  const rows = [
+    ["IRIAM ID", m.iriam_id || "未登録"],
+    ["Discord ID", m.discord_id || ""],
+    ["ロール", roleName(m.role) + (m.active ? "" : "（ロールなし）")],
+    ["線の数", m.stroke_count + "本"],
+    ["警告", m.warning_count + "回"]
+  ];
+  if(m.banned) rows.push(["BAN", m.ban_until ? fmtDate(m.ban_until)+" まで" : "期限なし"]);
+  if(stroke) rows.unshift(["描いた日時", fmtDate(stroke.t)]);
+  const dl = el("dl","st-dl");
+  for(const [k,v] of rows){ dl.append(el("dt","",k), el("dd","",v)); }
+  box.appendChild(dl);
+  const acts = el("div","st-acts");
+  const isSelf = m.user_id === myUid;
+  acts.appendChild(btn(focusUser===m.user_id ? "絞り込みをやめる" : "この人の線だけ表示","", ()=>{
+    focusUser = focusUser===m.user_id ? null : m.user_id; baseValid=false; needDraw=true; renderStaff();
+  }));
+  if(stroke) acts.appendChild(btn("この線を消す","", async ()=>{
+    try{ await api.eraseStrokes([stroke.id], []); strokes.delete(stroke.id); picked=null; rebuildOrder(); await loadMembers(); renderStaff(); toast("線を消しました"); }
+    catch(err){ failed(err,"消せませんでした"); }
+  }));
+  if(!isSelf){
+    acts.appendChild(btn("警告する","", ()=> warnDialog(m)));
+    acts.appendChild(m.banned ? btn("BANを解除","", async ()=>{
+      try{ await api.unban(m.user_id); await loadMembers(); renderStaff(); toast("BANを解除しました"); }catch(err){ failed(err,"解除できませんでした"); }
+    }) : btn("BANする","danger", ()=> banDialog(m)));
+  }
+  acts.appendChild(btn("この人の線を全部消す","danger", ()=> confirmDialog(
+    (m.display_name||"この人")+"の線を全部消しますか？", "消した線は運営の記録に残りますが、画面からは消えます。", "全部消す",
+    async ()=>{ try{ const n = await api.deleteUserStrokes(m.user_id); for(const s of [...strokes.values()]) if(s.by===m.user_id) strokes.delete(s.id); rebuildOrder(); await loadMembers(); renderStaff(); toast(n+"本の線を消しました"); }catch(err){ failed(err,"消せませんでした"); } })));
+  acts.appendChild(btn("IRIAM IDを直す","", ()=> iriamDialog(m)));
+  box.appendChild(acts);
+  return box;
+}
+function memberFor(id){
+  return memberMap.get(id) || { user_id:id, display_name: names.get(id) || "", discord_id:"", iriam_id:"", role:"liver", active:true,
+    stroke_count: ordered.filter(s=>s.by===id).length, warning_count:0, banned:false };
+}
+async function renderStaff(){
+  if(!staffMode) return;
+  staffBody.innerHTML = "";
+  if(staffTab === "line"){
+    if(!picked){ staffBody.appendChild(el("p","st-hint","線をタップすると、描いた人が出ます。"));
+      if(focusUser){ staffBody.appendChild(memberCard(memberFor(focusUser))); }
+      return; }
+    staffBody.appendChild(memberCard(memberFor(picked.by), picked));
+    return;
+  }
+  if(staffTab === "members"){
+    if(!memberRows.length){ staffBody.appendChild(el("p","st-hint","メンバーはまだいません。")); return; }
+    for(const m of memberRows){
+      const row = el("button","st-row");
+      const av = el("div","av"); av.style.background = hashColor(m.user_id); av.textContent = [...(m.display_name||"?")][0] || "?";
+      const main = el("div","st-row-main");
+      main.append(el("div","st-row-name", m.display_name || "名前なし"), el("div","st-row-sub", (m.iriam_id||"IRIAM未登録") + " ・ " + roleName(m.role) + " ・ 線" + m.stroke_count + "本 ・ 警告" + m.warning_count));
+      row.append(av, main);
+      if(m.banned) row.appendChild(el("span","st-badge ban","BAN中"));
+      row.onclick = ()=>{ staffBody.innerHTML=""; const back = btn("← 一覧にもどる","link", ()=>renderStaff()); staffBody.append(back, memberCard(m)); };
+      staffBody.appendChild(row);
+    }
+    return;
+  }
+  if(staffTab === "log"){
+    staffBody.appendChild(el("p","st-hint","読み込み中…"));
+    let rows = [];
+    try{ rows = await api.modLog(); }catch(err){ failed(err,"記録を読み込めませんでした"); }
+    if(staffTab !== "log") return;
+    staffBody.innerHTML = "";
+    if(!rows.length){ staffBody.appendChild(el("p","st-hint","まだ記録はありません。")); return; }
+    const label = { warn:"警告", ban:"BAN", unban:"BAN解除", erase:"線を消した", delete_all_of_user:"線を全部消した", clear_all:"キャンバスを全部消した", set_iriam:"IRIAM IDを修正" };
+    const nameOf = id => id ? ((memberMap.get(id)||{}).display_name || names.get(id) || "不明") : "";
+    for(const r of rows){
+      const item = el("div","st-log");
+      item.append(el("div","st-log-time", fmtDate(r.created_at)),
+        el("div","st-log-main", nameOf(r.actor) + " → " + (r.target ? nameOf(r.target) : "全体") + "：" + (label[r.action] || r.action)),
+        el("div","st-log-detail", r.detail || ""));
+      staffBody.appendChild(item);
+    }
+  }
+}
+
+/* ---- staff dialogs ---- */
+const dlg = document.getElementById("dlg"), dlgBody = document.getElementById("dlgBody");
+function openDialog(title, build, okText, onOk, danger){
+  document.getElementById("dlgTitle").textContent = title;
+  dlgBody.innerHTML = "";
+  const get = build(dlgBody) || (()=>({}));
+  const ok = document.getElementById("dlgOk");
+  ok.textContent = okText; ok.classList.toggle("danger", !!danger);
+  ok.onclick = async ()=>{ const v = get(); if(v===false) return; dlg.classList.remove("open"); await onOk(v); };
+  document.getElementById("dlgNo").onclick = ()=> dlg.classList.remove("open");
+  dlg.classList.add("open");
+}
+function confirmDialog(title, text, okText, onOk){ openDialog(title, b=>{ b.appendChild(el("p","d-text",text)); }, okText, onOk, true); }
+function warnDialog(m){
+  openDialog((m.display_name||"この人")+"に警告", b=>{
+    b.appendChild(el("p","d-text","相手の画面にすぐ表示されます。確認するまで消えません。"));
+    const ta = el("textarea","d-input"); ta.maxLength = 500; ta.rows = 4; ta.placeholder = "伝える内容";
+    b.appendChild(ta); setTimeout(()=>ta.focus(),50);
+    return ()=>{ const v=ta.value.trim(); if(!v){ toast("内容を入力してください"); return false; } return {msg:v}; };
+  }, "送る", async v=>{
+    try{ await api.warn(m.user_id, v.msg); await loadMembers(); renderStaff(); toast("警告を送りました"); }catch(err){ failed(err,"送れませんでした"); }
+  });
+}
+function banDialog(m){
+  openDialog((m.display_name||"この人")+"をBAN", b=>{
+    const opts = [["1","1日"],["7","7日"],["","無期限"]];
+    const wrap = el("div","d-radios");
+    opts.forEach(([v,t],i)=>{ const lab = el("label","d-radio"); const r = el("input"); r.type="radio"; r.name="banDays"; r.value=v; if(i===0) r.checked=true; lab.append(r, document.createTextNode(t)); wrap.appendChild(lab); });
+    b.appendChild(wrap);
+    const reason = el("textarea","d-input"); reason.rows=3; reason.maxLength=300; reason.placeholder="理由（本人の画面に出ます）";
+    b.appendChild(reason);
+    const lab = el("label","d-check"); const cb = el("input"); cb.type="checkbox"; lab.append(cb, document.createTextNode("この人の線も全部消す"));
+    b.appendChild(lab);
+    return ()=>{ const sel = b.querySelector("input[name=banDays]:checked"); const r = reason.value.trim(); if(!r){ toast("理由を入力してください"); return false; }
+      return { days: sel && sel.value ? Number(sel.value) : null, reason:r, wipe: cb.checked }; };
+  }, "BANする", async v=>{
+    try{
+      await api.ban(m.user_id, v.days, v.reason);
+      if(v.wipe){ await api.deleteUserStrokes(m.user_id); for(const s of [...strokes.values()]) if(s.by===m.user_id) strokes.delete(s.id); rebuildOrder(); }
+      await loadMembers(); renderStaff(); toast("BANしました");
+    }catch(err){ failed(err,"BANできませんでした"); }
+  }, true);
+}
+function iriamDialog(m){
+  openDialog("IRIAM IDを直す", b=>{
+    const inp = el("input","d-input"); inp.value = m.iriam_id || ""; inp.maxLength = 64; b.appendChild(inp); setTimeout(()=>inp.focus(),50);
+    return ()=>({ v: inp.value.trim() });
+  }, "保存", async v=>{
+    try{ await api.setIriamFor(m.user_id, v.v); await loadMembers(); renderStaff(); toast("保存しました"); }catch(err){ failed(err,"保存できませんでした"); }
+  });
+}
+
+/* ============ ENTER THE ROOM ============ */
+async function enter(st){
+  me = st.me; myUid = me.id; isAdmin = me.role === "staff"; canWrite = true;
+  names.set(me.id, me.name || "Someone");
+  hideGate(); applyWriteState(); setTool("pen");
+  api.subscribe({
+    onInsert(s){ if(!strokes.has(s.id)){ strokes.set(s.id, s); rebuildOrder(); } },
+    onDelete(id){ if(strokes.delete(id)){ pathCache.delete(id); rebuildOrder(); } },
+    onInk,
+    onPeers(list){ peerList = list; renderPeers(); },
+    onConnection(ok){ document.getElementById("liveDot").classList.toggle("off", !ok); },
+    onWarning(w){ queueWarnings([w]); },
+    async onBanChanged(){
+      try{ const s2 = await api.status(); if(s2.state === "banned"){ lockOut(s2); } }catch(_){}
+    }
+  });
+  setStatus("読み込み中…");
+  try{
+    const rows = await api.loadStrokes();
+    for(const s of rows) strokes.set(s.id, s);
+    rebuildOrder();
+  }catch(err){ failed(err, "絵を読み込めませんでした"); }
+  setStatus(null);
+  api.setPresence({ pos:null, col:color, d:false, uid: myUid });
+  queueWarnings(st.warnings);
+}
+function lockOut(st){
+  canWrite = false; isAdmin = false; setStaffMode(false); applyWriteState();
+  try{ api.unsubscribe(); }catch(_){}
+  gate("banned", st);
+}
+
+/* ============ BACKEND: SUPABASE ============ */
+function createSupabaseApi(cfg){
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" }
+  });
+  const chk = res => { if(res.error) throw res.error; return res.data; };
+  const toStroke = r => validStroke({ id:r.id, c:r.c, w:Number(r.w), p:r.p, t:Number(r.t), by:r.user_id });
+  let ch = null, presKey = null, presTimer = null, presLast = 0, presNext = null;
+  return {
+    mode: "supabase",
+    async signIn(){
+      const { error } = await sb.auth.signInWithOAuth({ provider:"discord",
+        options:{ scopes:"identify guilds.members.read", redirectTo: location.origin + location.pathname } });
+      if(error) throw error;
+    },
+    async signOut(){ await sb.auth.signOut(); },
+    async start(){
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { state:"signed_out" };
+      if(session.provider_token){
+        gate("loading", { text:"Discordのロールを確かめています…" });
+        const { data, error } = await sb.functions.invoke("verify-discord", { body:{ provider_token: session.provider_token } });
+        if(error){
+          let body = null; try{ body = await error.context.json(); }catch(_){}
+          return { state:"denied", reason: (body && body.reason) || "error" };
+        }
+        if(!data || !data.ok) return { state:"denied", reason: (data && data.reason) || "error" };
+      }
+      return this.status();
+    },
+    async status(){
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { state:"signed_out" };
+      const st = chk(await sb.rpc("my_status"));
+      if(!st || !st.known || !st.active) return { state:"expired" };
+      if(st.banned) return { state:"banned", reason: st.ban_reason, until: st.ban_until };
+      if(!st.verified) return { state:"expired" };
+      const meObj = { id: session.user.id, name: st.display_name, role: st.role, iriam: st.iriam_id };
+      if(!st.iriam_id) return { state:"need_iriam", me: meObj };
+      return { state:"ready", me: meObj, warnings: st.warnings || [] };
+    },
+    async setIriam(v){ chk(await sb.rpc("set_my_iriam", { iriam: v })); },
+    async loadStrokes(){
+      const out = [];
+      for(let from=0;;from+=1000){
+        const rows = chk(await sb.from("strokes").select("id,user_id,c,w,p,t").order("t").order("id").range(from, from+999));
+        out.push(...rows);
+        if(rows.length < 1000) break;
+      }
+      return out.map(toStroke).filter(Boolean);
+    },
+    async addStroke(s){ chk(await sb.from("strokes").insert({ id:s.id, c:s.c, w:s.w, p:s.p, t:s.t })); },
+    async deleteStroke(id){ chk(await sb.from("strokes").delete().eq("id", id)); },
+    async eraseStrokes(removed, pieces){ chk(await sb.rpc("erase_strokes", { removed, pieces })); },
+    async restoreStrokes(trashIds, removeIds){
+      const rows = chk(await sb.rpc("restore_strokes", { trash_ids: trashIds, remove_ids: removeIds }));
+      return (rows || []).map(toStroke).filter(Boolean);
+    },
+    async ackWarning(id){ chk(await sb.rpc("ack_warning", { wid: id })); },
+    async profiles(ids){
+      const rows = chk(await sb.from("profiles").select("user_id,display_name").in("user_id", ids));
+      const map = {}; for(const r of rows) map[r.user_id] = { name: r.display_name }; return map;
+    },
+    async subscribe(h){
+      const { data:{ session } } = await sb.auth.getSession();
+      try{ await sb.realtime.setAuth(session && session.access_token); }catch(_){}
+      presKey = myUid + ":" + tabId;
+      ch = sb.channel("room:main", { config:{ private:true, broadcast:{ self:false }, presence:{ key: presKey } } });
+      ch.on("broadcast", { event:"ink" }, ({ payload }) => h.onInk({ data: payload, sameTab:false, peer: payload && payload.k }));
+      ch.on("presence", { event:"sync" }, () => {
+        const state = ch.presenceState(), list = [];
+        for(const [key, metas] of Object.entries(state)){
+          const m = metas[metas.length-1] || {};
+          list.push({ peer:key, by: typeof m.uid==="string" ? m.uid : null, isMe: m.uid===myUid, sameTab: key===presKey,
+            kind:"viewer", presence:m, updatedAt: Number(m.at) || Date.now() });
+        }
+        h.onPeers(list);
+      });
+      ch.on("postgres_changes", { event:"INSERT", schema:"public", table:"strokes" }, p => { const s = toStroke(p.new); if(s) h.onInsert(s); });
+      ch.on("postgres_changes", { event:"DELETE", schema:"public", table:"strokes" }, p => { if(p.old && p.old.id) h.onDelete(p.old.id); });
+      ch.on("postgres_changes", { event:"INSERT", schema:"public", table:"warnings", filter:"user_id=eq."+myUid }, p => h.onWarning(p.new));
+      ch.on("postgres_changes", { event:"*", schema:"public", table:"bans", filter:"user_id=eq."+myUid }, () => h.onBanChanged());
+      ch.subscribe(status => {
+        if(status === "SUBSCRIBED"){ h.onConnection(true); if(presNext) ch.track(presNext); }
+        else if(status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") h.onConnection(false);
+      });
+    },
+    unsubscribe(){ if(ch){ sb.removeChannel(ch); ch = null; } },
+    sendInk(data){ if(!ch) return Promise.resolve(); return ch.send({ type:"broadcast", event:"ink", payload:{ ...data, k: presKey } }).catch(()=>{}); },
+    setPresence(meta){
+      presNext = { ...meta, uid: myUid, at: Date.now() };
+      const go = ()=>{ presLast = Date.now(); if(ch) ch.track(presNext).catch(()=>{}); };
+      clearTimeout(presTimer);
+      if(Date.now() - presLast > 300) go(); else presTimer = setTimeout(go, 320);
+    },
+    // staff
+    async members(){
+      const rows = chk(await sb.rpc("staff_members")) || [];
+      return rows.map(r => ({ ...r, stroke_count: Number(r.stroke_count)||0, warning_count: Number(r.warning_count)||0 }));
+    },
+    async warn(uid, msg){ chk(await sb.rpc("staff_warn", { target: uid, msg })); },
+    async ban(uid, days, reason){ chk(await sb.rpc("staff_ban", { target: uid, days, reason })); },
+    async unban(uid){ chk(await sb.rpc("staff_unban", { target: uid })); },
+    async deleteUserStrokes(uid){ return chk(await sb.rpc("staff_delete_user_strokes", { target: uid })); },
+    async clearAll(){ return chk(await sb.rpc("staff_clear_all")); },
+    async setIriamFor(uid, v){ chk(await sb.rpc("staff_set_iriam", { target: uid, iriam: v })); },
+    async modLog(){ return chk(await sb.from("mod_log").select("*").order("created_at", { ascending:false }).limit(100)); }
+  };
+}
+
+/* ============ BACKEND: DEMO (this browser only) ============ */
+function createDemoApi(){
+  const KEY = "drawroom.demo.v1", SKEY = "drawroom.demo.me";
+  const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("drawroom-demo") : null;
+  let memStore = null;
+  function seed(){
+    const d = { v:1, seq:1, members:{}, strokes:[], trash:[], bans:{}, warnings:[], log:[] };
+    d.members["demo-mio"]  = { user_id:"demo-mio",  display_name:"みお（デモ）", discord_id:"100000000000000001", iriam_id:"mio_demo",  role:"liver", active:true };
+    d.members["demo-riku"] = { user_id:"demo-riku", display_name:"りく（デモ）", discord_id:"100000000000000002", iriam_id:"riku_demo", role:"liver", active:true };
+    const wave = (x0, y0, c, by, n) => { const p=[]; for(let i=0;i<=40;i++) p.push(x0+i*12, y0+Math.round(Math.sin(i/4)*30)); return { id:"demo-"+n, c, w:10, p, t:n, by }; };
+    d.strokes.push(wave(-260,-150,"#ff7aa8","demo-mio",1), wave(-260,-50,"#7cc8ff","demo-riku",2), wave(-260,50,"#b39dff","demo-mio",3));
+    return d;
+  }
+  const read = () => { if(memStore) return memStore; try{ const d = JSON.parse(localStorage.getItem(KEY)||"null"); if(d && d.v===1) return d; }catch(_){} memStore = seed(); return memStore; };
+  const save = d => { try{ localStorage.setItem(KEY, JSON.stringify(d)); memStore = null; }catch(_){ memStore = d; } };
+  const post = m => { try{ bc && bc.postMessage(m); }catch(_){} };
+  let meRec = null; try{ meRec = JSON.parse(sessionStorage.getItem(SKEY) || "null"); }catch(_){}
+  const activeBan = (d, id) => { const b = d.bans[id]; return b && (b.until === null || b.until > Date.now()) ? b : null; };
+  const deny = code => Promise.reject({ message: code });
+  const isStaff = () => { const d = read(); return meRec && d.members[meRec.id] && d.members[meRec.id].role === "staff" && !activeBan(d, meRec.id); };
+  const log = (d, action, target, detail) => d.log.unshift({ id: d.seq++, actor: meRec.id, action, target, detail: detail || null, created_at: new Date().toISOString() });
+  let h = null, myMeta = null, myAt = 0, hb = null;
+  const peers = new Map();
+  const key = () => meRec.id + ":" + tabId;
+  const emitPeers = () => {
+    if(!h) return;
+    const list = [];
+    if(myMeta) list.push({ peer:key(), by:meRec.id, isMe:true, sameTab:true, kind:"viewer", presence:myMeta, updatedAt:myAt });
+    for(const [k, v] of peers) list.push({ peer:k, by:v.meta.uid, isMe: v.meta.uid===meRec.id, sameTab:false, kind:"viewer", presence:v.meta, updatedAt:v.at });
+    h.onPeers(list);
+  };
+  return {
+    mode: "demo",
+    async signIn(){},
+    async signOut(){ post({ type:"leave", key: meRec && key() }); try{ sessionStorage.removeItem(SKEY); }catch(_){} meRec = null; },
+    async demoLogin(name, role){
+      meRec = { id: "demo-" + rid(6) };
+      try{ sessionStorage.setItem(SKEY, JSON.stringify(meRec)); }catch(_){}
+      const d = read();
+      d.members[meRec.id] = { user_id: meRec.id, display_name: name, discord_id: String(Date.now()), iriam_id: null, role, active:true };
+      save(d);
+    },
+    async start(){ return this.status(); },
+    async status(){
+      if(!meRec) return { state:"demo_login" };
+      const d = read(), m = d.members[meRec.id];
+      if(!m) return { state:"demo_login" };
+      const b = activeBan(d, meRec.id);
+      if(b) return { state:"banned", reason:b.reason, until:b.until };
+      const meObj = { id:m.user_id, name:m.display_name, role:m.role, iriam:m.iriam_id };
+      if(!m.iriam_id) return { state:"need_iriam", me:meObj };
+      return { state:"ready", me:meObj, warnings: d.warnings.filter(w => w.user_id===meRec.id && !w.read_at) };
+    },
+    async setIriam(v){ const d = read(); if(d.members[meRec.id] && !d.members[meRec.id].iriam_id) d.members[meRec.id].iriam_id = v; save(d); },
+    async loadStrokes(){ return read().strokes.map(validStroke).filter(Boolean); },
+    async addStroke(s){ const d = read(); if(activeBan(d, meRec.id)) return deny("not_member"); d.strokes.push({ ...s, by: meRec.id }); save(d); post({ type:"ins", s:{ ...s, by: meRec.id } }); },
+    async deleteStroke(id){
+      const d = read(), s = d.strokes.find(x => x.id===id);
+      if(s && s.by !== meRec.id) return deny("not_allowed");
+      d.strokes = d.strokes.filter(x => x.id!==id); save(d); post({ type:"del", ids:[id] });
+    },
+    async eraseStrokes(removed, pieces){
+      const d = read(), orig = new Map(d.strokes.filter(s => removed.includes(s.id)).map(s => [s.id, s]));
+      const others = [...orig.values()].filter(s => s.by !== meRec.id);
+      if(others.length && !isStaff()) return deny("not_allowed");
+      const added = [];
+      for(const pc of pieces){ const o = orig.get(pc.src); if(o) added.push({ id:pc.id, c:o.c, w:o.w, p:pc.p, t:o.t, by:o.by }); }
+      for(const o of orig.values()) d.trash.push({ ...o, deleted_by: meRec.id });
+      d.strokes = d.strokes.filter(s => !orig.has(s.id)).concat(added);
+      const byUser = new Map(); for(const o of others) byUser.set(o.by, (byUser.get(o.by)||0)+1);
+      for(const [u, n] of byUser) log(d, "erase", u, n + "本の線を消した");
+      save(d);
+      post({ type:"del", ids:[...orig.keys()] }); for(const s of added) post({ type:"ins", s });
+    },
+    async restoreStrokes(trashIds, removeIds){
+      const d = read();
+      const rem = new Set(removeIds || []);
+      if(d.strokes.some(s => rem.has(s.id) && s.by !== meRec.id) && !isStaff()) return deny("not_allowed");
+      d.strokes = d.strokes.filter(s => !rem.has(s.id));
+      const back = d.trash.filter(t => trashIds.includes(t.id) && t.deleted_by === meRec.id);
+      d.trash = d.trash.filter(t => !back.includes(t));
+      const rows = back.map(({ deleted_by, ...s }) => s);
+      d.strokes.push(...rows); save(d);
+      post({ type:"del", ids:[...rem] }); for(const s of rows) post({ type:"ins", s });
+      return rows.map(validStroke).filter(Boolean);
+    },
+    async ackWarning(id){ const d = read(); const w = d.warnings.find(x => x.id===id && x.user_id===meRec.id); if(w) w.read_at = new Date().toISOString(); save(d); },
+    async profiles(ids){ const d = read(), map = {}; for(const id of ids){ const m = d.members[id]; if(m) map[id] = { name: m.display_name }; } return map; },
+    subscribe(handlers){
+      h = handlers;
+      if(bc) bc.onmessage = ev => {
+        const m = ev.data || {};
+        if(m.type==="ins" && m.s){ const s = validStroke(m.s); if(s) h.onInsert(s); }
+        else if(m.type==="del") for(const id of m.ids||[]) h.onDelete(id);
+        else if(m.type==="ink") h.onInk({ data:m.data, sameTab:false, peer:m.key });
+        else if(m.type==="pres"){ peers.set(m.key, { meta:m.meta, at:Date.now() }); emitPeers(); }
+        else if(m.type==="leave"){ peers.delete(m.key); emitPeers(); }
+        else if(m.type==="hello"){ if(myMeta) post({ type:"pres", key:key(), meta:myMeta }); }
+        else if(m.type==="warn" && m.w && meRec && m.w.user_id===meRec.id) h.onWarning(m.w);
+        else if(m.type==="ban" && meRec && m.uid===meRec.id) h.onBanChanged();
+      };
+      post({ type:"hello" });
+      h.onConnection(true);
+      clearInterval(hb);
+      hb = setInterval(()=>{
+        if(myMeta) post({ type:"pres", key:key(), meta:myMeta });
+        const now = Date.now(); let ch = false;
+        for(const [k, v] of peers) if(now - v.at > 12000){ peers.delete(k); ch = true; }
+        if(ch) emitPeers();
+      }, 4000);
+      window.addEventListener("pagehide", ()=> post({ type:"leave", key:key() }));
+    },
+    unsubscribe(){ clearInterval(hb); post({ type:"leave", key: meRec && key() }); if(bc) bc.onmessage = null; h = null; },
+    sendInk(data){ post({ type:"ink", key:key(), data }); return Promise.resolve(); },
+    setPresence(meta){ myMeta = { ...meta, uid: meRec.id, at: Date.now() }; myAt = Date.now(); post({ type:"pres", key:key(), meta:myMeta }); emitPeers(); },
+    // staff
+    async members(){
+      if(!isStaff()) return deny("not_staff");
+      const d = read();
+      return Object.values(d.members).map(m => {
+        const b = activeBan(d, m.user_id);
+        return { ...m, verified_at: null, stroke_count: d.strokes.filter(s => s.by===m.user_id).length,
+          warning_count: d.warnings.filter(w => w.user_id===m.user_id).length,
+          banned: !!b, ban_until: b ? b.until : null, ban_reason: b ? b.reason : null };
+      }).sort((a,b)=> String(a.display_name).localeCompare(String(b.display_name), "ja"));
+    },
+    async warn(uid, msg){ if(!isStaff()) return deny("not_staff"); const d = read(); const w = { id:d.seq++, user_id:uid, message:msg, created_at:new Date().toISOString(), read_at:null }; d.warnings.push(w); log(d, "warn", uid, msg); save(d); post({ type:"warn", w }); },
+    async ban(uid, days, reason){ if(!isStaff()) return deny("not_staff"); if(uid===meRec.id) return deny("cannot_ban_self"); const d = read(); d.bans[uid] = { until: days ? Date.now()+days*864e5 : null, reason }; log(d, "ban", uid, (days ? days+"日" : "無期限") + " / " + reason); save(d); post({ type:"ban", uid }); },
+    async unban(uid){ if(!isStaff()) return deny("not_staff"); const d = read(); delete d.bans[uid]; log(d, "unban", uid); save(d); post({ type:"ban", uid }); },
+    async deleteUserStrokes(uid){ if(!isStaff()) return deny("not_staff"); const d = read(); const gone = d.strokes.filter(s => s.by===uid); for(const s of gone) d.trash.push({ ...s, deleted_by: meRec.id }); d.strokes = d.strokes.filter(s => s.by!==uid); log(d, "delete_all_of_user", uid, gone.length+"本"); save(d); post({ type:"del", ids: gone.map(s=>s.id) }); return gone.length; },
+    async clearAll(){ if(!isStaff()) return deny("not_staff"); const d = read(); const n = d.strokes.length; for(const s of d.strokes) d.trash.push({ ...s, deleted_by: meRec.id }); const ids = d.strokes.map(s=>s.id); d.strokes = []; log(d, "clear_all", null, n+"本"); save(d); post({ type:"del", ids }); return n; },
+    async setIriamFor(uid, v){ if(!isStaff()) return deny("not_staff"); const d = read(); if(d.members[uid]) d.members[uid].iriam_id = v || null; log(d, "set_iriam", uid, v); save(d); },
+    async modLog(){ if(!isStaff()) return deny("not_staff"); return read().log.slice(0, 100); }
+  };
+}
+
+/* ============ BOOT ============ */
+(async function boot(){
+  const cfg = window.DRAWROOM_CONFIG || {};
+  const useSupabase = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+  if(useSupabase && !window.supabase){ gate("error", { message:"Supabaseのライブラリを読み込めませんでした" }); return; }
+  api = useSupabase ? createSupabaseApi(cfg) : createDemoApi();
+  applyWriteState();
+  gate("loading");
+  try{ handleStatus(await api.start()); }
+  catch(err){ gate("error", { message: errText(err) }); }
+})();
+})();
+</script>
+</body>
+</html>
+
