@@ -429,3 +429,32 @@ create policy "drawroom members receive" on realtime.messages
 drop policy if exists "drawroom members send" on realtime.messages;
 create policy "drawroom members send" on realtime.messages
   for insert to authenticated with check (public.is_member());
+
+-- ---------------------------------------------------------------------
+-- 7. Daily reset: clear the whole canvas every day at 10:30 JST
+-- ---------------------------------------------------------------------
+
+-- Moves every line to stroke_trash (deleted_by = all zeros = "automatic")
+-- and drops trash older than 14 days.
+create or replace function public.daily_clear() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  insert into public.stroke_trash (id, user_id, c, w, p, t, deleted_by)
+    select id, user_id, c, w, p, t, '00000000-0000-0000-0000-000000000000'::uuid from public.strokes
+    on conflict (id) do nothing;
+  delete from public.strokes where true;
+  get diagnostics n = row_count;
+  delete from public.stroke_trash where deleted_at < now() - interval '14 days';
+  insert into public.mod_log (actor, action, target, detail) values (null, 'auto_clear', null, n || '本');
+  return n;
+end $$;
+revoke execute on function public.daily_clear() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 8. Schedule (pg_cron runs in UTC: 01:30 UTC = 10:30 JST)
+-- ---------------------------------------------------------------------
+create extension if not exists pg_cron with schema pg_catalog;
+grant usage on schema cron to postgres;
+grant all privileges on all tables in schema cron to postgres;
+select cron.schedule('drawroom-daily-clear', '30 1 * * *', 'select public.daily_clear()');

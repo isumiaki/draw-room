@@ -152,6 +152,20 @@
   .status.show{display:block}
 
 
+  /* ---------- DAILY RESET ---------- */
+  .reset{position:absolute;left:calc(var(--safe-l) + 10px);top:calc(var(--safe-t) + 70px);display:flex;align-items:center;gap:7px;
+    background:rgba(255,255,255,.94);border-radius:999px;padding:6px 12px 6px 10px;box-shadow:var(--shadow);pointer-events:none;
+    font:700 11px/1 var(--font);color:var(--sub)}
+  .reset svg{width:14px;height:14px;flex:none}
+  .reset b{font:800 13px/1 "M PLUS Rounded 1c",var(--font);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .reset.soon{background:#ffe1eb;color:#c2416c}
+  .reset.soon b{color:#c2416c}
+  .reset-big{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);z-index:7;pointer-events:none;display:none;
+    background:rgba(255,255,255,.92);border-radius:28px;padding:18px 26px 20px;text-align:center;box-shadow:0 12px 40px rgba(160,140,210,.32)}
+  .reset-big.show{display:block}
+  .reset-big p{margin:0 0 6px;font:700 13px/1.5 var(--font);color:#c2416c}
+  .reset-big b{display:block;font:800 56px/1 "M PLUS Rounded 1c",var(--font);color:#ff7aa8;font-variant-numeric:tabular-nums}
+
   /* ---------- GATE (login etc.) ---------- */
   .gate{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;
     background:radial-gradient(circle at 20% 15%,#e6f2ff 0,transparent 55%),radial-gradient(circle at 85% 80%,#f5e6fa 0,transparent 55%),#fbf9fe}
@@ -266,6 +280,11 @@
   </button>
 </div>
 <div class="zoom" id="zoomLbl">100%</div>
+<div class="reset" id="reset" title="毎日10:30（日本時間）にキャンバスが白紙に戻ります">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>
+  <span>リセットまで</span><b id="resetLeft">--:--:--</b>
+</div>
+<div class="reset-big" id="resetBig"><p>まもなくキャンバスがリセットされます</p><b id="resetSec">60</b></div>
 <div class="side">
   <button class="sqbtn" id="gridBtn" aria-label="グリッドの表示切り替え" title="グリッド">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9.2 3.5v17M14.8 3.5v17M3.5 9.2h17M3.5 14.8h17"/></svg>
@@ -1602,12 +1621,12 @@ async function renderStaff(){
     if(staffTab !== "log") return;
     staffBody.innerHTML = "";
     if(!rows.length){ staffBody.appendChild(el("p","st-hint","まだ記録はありません。")); return; }
-    const label = { warn:"警告", ban:"BAN", unban:"BAN解除", erase:"線を消した", delete_all_of_user:"線を全部消した", clear_all:"キャンバスを全部消した", set_iriam:"IRIAM IDを修正" };
+    const label = { warn:"警告", ban:"BAN", unban:"BAN解除", erase:"線を消した", delete_all_of_user:"線を全部消した", clear_all:"キャンバスを全部消した", set_iriam:"IRIAM IDを修正", auto_clear:"毎日のリセット" };
     const nameOf = id => id ? ((memberMap.get(id)||{}).display_name || names.get(id) || "不明") : "";
     for(const r of rows){
       const item = el("div","st-log");
       item.append(el("div","st-log-time", fmtDate(r.created_at)),
-        el("div","st-log-main", nameOf(r.actor) + " → " + (r.target ? nameOf(r.target) : "全体") + "：" + (label[r.action] || r.action)),
+        el("div","st-log-main", (r.actor ? nameOf(r.actor) : "自動") + " → " + (r.target ? nameOf(r.target) : "全体") + "：" + (label[r.action] || r.action)),
         el("div","st-log-detail", r.detail || ""));
       staffBody.appendChild(item);
     }
@@ -1665,6 +1684,46 @@ function iriamDialog(m){
     try{ await api.setIriamFor(m.user_id, v.v); await loadMembers(); renderStaff(); toast("保存しました"); }catch(err){ failed(err,"保存できませんでした"); }
   });
 }
+
+/* ============ DAILY RESET (10:30 JST) ============ */
+const RESET_H = 10, RESET_M = 30;          // keep in sync with the pg_cron schedule (01:30 UTC)
+const JST = 9 * 3600e3;
+function nextReset(now){
+  const d = new Date(now + JST);
+  let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), RESET_H, RESET_M) - JST;
+  if(t <= now) t += 864e5;
+  return t;
+}
+let resetAt = nextReset(Date.now());
+function fmtLeft(ms){
+  const s = Math.max(0, Math.ceil(ms/1000)), h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return h + ":" + String(m).padStart(2,"0") + ":" + String(x).padStart(2,"0");
+}
+async function reloadStrokes(){
+  try{ const rows = await api.loadStrokes(); strokes.clear(); for(const s of rows) strokes.set(s.id, s); rebuildOrder(); }catch(_){}
+}
+async function doDailyReset(at){
+  if(!me) return;
+  strokes.clear(); live.clear(); undoStack.length = 0; picked = null; pathCache.clear();
+  rebuildOrder();
+  toast("キャンバスがリセットされました。新しい1日です", 3500);
+  try{ await api.dailyReset(at); }catch(_){}
+  // the server clears on its own schedule; sync again once it has run
+  setTimeout(reloadStrokes, 20000);
+  setTimeout(reloadStrokes, 70000);
+}
+function tickReset(){
+  const now = Date.now();
+  if(now >= resetAt){ const at = resetAt; resetAt = nextReset(now + 1000); doDailyReset(at); }
+  const left = resetAt - now;
+  document.getElementById("resetLeft").textContent = fmtLeft(left);
+  document.getElementById("reset").classList.toggle("soon", left <= 10*60e3);
+  const big = me && left <= 60e3;
+  document.getElementById("resetBig").classList.toggle("show", !!big);
+  if(big) document.getElementById("resetSec").textContent = String(Math.max(0, Math.ceil(left/1000)));
+}
+tickReset();
+setInterval(tickReset, 500);
 
 /* ============ ENTER THE ROOM ============ */
 async function enter(st){
@@ -1741,6 +1800,7 @@ function createSupabaseApi(cfg){
     },
     async setIriam(v){ chk(await sb.rpc("set_my_iriam", { iriam: v })); },
     async setNickname(v){ chk(await sb.rpc("set_my_nickname", { nick: v })); },
+    async dailyReset(){ /* done by pg_cron on the server */ },
     async loadStrokes(){
       const out = [];
       for(let from=0;;from+=1000){
@@ -1863,6 +1923,14 @@ function createDemoApi(){
       return { state:"ready", me:meObj, warnings: d.warnings.filter(w => w.user_id===meRec.id && !w.read_at) };
     },
     async setIriam(v){ const d = read(); if(d.members[meRec.id] && !d.members[meRec.id].iriam_id) d.members[meRec.id].iriam_id = v; save(d); },
+    async dailyReset(at){
+      const d = read();
+      if(d.lastReset === at) return;          // another tab already did it
+      const ids = d.strokes.map(s => s.id);
+      d.strokes = []; d.lastReset = at;
+      d.log.unshift({ id: d.seq++, actor: null, action: "auto_clear", target: null, detail: ids.length + "本", created_at: new Date().toISOString() });
+      save(d); post({ type:"del", ids });
+    },
     async setNickname(v){ const d = read(); const m = d.members[meRec.id]; if(m){ if(!m.discord_name) m.discord_name = m.display_name; m.display_name = cleanName(v) || m.display_name; } save(d); },
     async loadStrokes(){ return read().strokes.map(validStroke).filter(Boolean); },
     async addStroke(s){ const d = read(); if(activeBan(d, meRec.id)) return deny("not_member"); d.strokes.push({ ...s, by: meRec.id }); save(d); post({ type:"ins", s:{ ...s, by: meRec.id } }); },
