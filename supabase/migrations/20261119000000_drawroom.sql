@@ -144,13 +144,21 @@ create policy mod_log_select on public.mod_log
 
 -- stroke_trash has no policies: only the functions below touch it.
 
+-- Table privileges (newer projects do not grant these automatically).
+-- Row Level Security above still decides which rows each person can touch.
+grant usage on schema public to authenticated, service_role;
+grant all on public.members, public.strokes, public.stroke_trash, public.bans, public.warnings, public.mod_log to service_role;
+grant usage, select on all sequences in schema public to authenticated, service_role;
+grant select on public.members, public.strokes, public.bans, public.warnings, public.mod_log to authenticated;
+grant insert, delete on public.strokes to authenticated;
+
 -- Names everyone in the room may see (no IRIAM ID, no Discord ID)
 create or replace view public.profiles as
   select user_id, display_name, avatar_url, role
   from public.members
   where public.is_member();
 revoke all on public.profiles from anon;
-grant select on public.profiles to authenticated;
+grant select on public.profiles to authenticated, service_role;
 
 -- ---------------------------------------------------------------------
 -- 4. Functions called from the page (everyone)
