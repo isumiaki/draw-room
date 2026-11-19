@@ -1379,6 +1379,7 @@ function gate(state, info){
         no_role: "このアカウントには、おえかきルームに入るためのロールがありません。運営に確認してください。"
       }[info.reason] || "ログインを確認できませんでした。時間をおいて、もう一度試してください。";
       add(el("p","g-text",why));
+      if(info.reason) add(el("p","g-note","確認コード：" + info.reason + (info.detail ? "（" + info.detail + "）" : "")));
       add(btn("別のアカウントでログイン","primary", async ()=>{ try{ await api.signOut(); }catch(_){} signIn(); }));
       add(btn("ログアウト","", async ()=>{ try{ await api.signOut(); }catch(_){} location.reload(); }));
       break;
@@ -1686,9 +1687,9 @@ function createSupabaseApi(cfg){
         const { data, error } = await sb.functions.invoke("verify-discord", { body:{ provider_token: session.provider_token } });
         if(error){
           let body = null; try{ body = await error.context.json(); }catch(_){}
-          return { state:"denied", reason: (body && body.reason) || "error" };
+          return { state:"denied", reason: (body && body.reason) || "error", detail: (body && body.detail) || (!body && error.message) || "" };
         }
-        if(!data || !data.ok) return { state:"denied", reason: (data && data.reason) || "error" };
+        if(!data || !data.ok) return { state:"denied", reason: (data && data.reason) || "error", detail: (data && data.detail) || "" };
       }
       return this.status();
     },

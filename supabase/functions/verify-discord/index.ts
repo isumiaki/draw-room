@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } });
   const { data: { user }, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !user) return json({ ok: false, reason: "not_signed_in" }, 401);
+  if (userErr || !user) return json({ ok: false, reason: "not_signed_in", detail: userErr?.message ?? "" }, 401);
 
   const body = await req.json().catch(() => ({}));
   const token = typeof body?.provider_token === "string" ? body.provider_token : "";
@@ -50,11 +50,13 @@ Deno.serve(async (req) => {
 
   // 2. The Discord token must belong to the same Discord account the session signed in with
   const meRes = await fetch(`${DISCORD}/users/@me`, { headers: discordHeaders });
-  if (!meRes.ok) return json({ ok: false, reason: "discord_error" }, 400);
+  if (!meRes.ok) return json({ ok: false, reason: "discord_error", detail: `users/@me ${meRes.status}` }, 400);
   const du = await meRes.json();
   const linked = user.identities?.find((i) => i.provider === "discord");
   const linkedId = String(linked?.identity_data?.provider_id ?? linked?.id ?? user.user_metadata?.provider_id ?? "");
-  if (!linkedId || linkedId !== String(du.id)) return json({ ok: false, reason: "mismatch" }, 403);
+  if (!linkedId || linkedId !== String(du.id)) {
+    return json({ ok: false, reason: "mismatch", detail: `${linkedId || "none"} / ${du.id}` }, 403);
+  }
 
   const admin = createClient(url, service);
   const deactivate = () =>
@@ -66,7 +68,7 @@ Deno.serve(async (req) => {
     await deactivate();
     return json({ ok: false, reason: "not_in_guild" });
   }
-  if (!memRes.ok) return json({ ok: false, reason: "discord_error" }, 502);
+  if (!memRes.ok) return json({ ok: false, reason: "discord_error", detail: `guild member ${memRes.status}` }, 502);
   const member = await memRes.json();
   const roles: string[] = Array.isArray(member.roles) ? member.roles : [];
   const role = roles.some((r) => staffRoles.includes(r)) ? "staff"
@@ -89,7 +91,7 @@ Deno.serve(async (req) => {
     active: true,
     verified_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
-  if (upErr) return json({ ok: false, reason: "save_failed" }, 500);
+  if (upErr) return json({ ok: false, reason: "save_failed", detail: upErr.message }, 500);
 
   return json({ ok: true, role });
 });
