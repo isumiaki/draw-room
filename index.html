@@ -164,6 +164,7 @@
   .g-text{margin:0;font:500 14px/1.7 var(--font);color:var(--ink)}
   .g-title2{margin:0;font:900 18px/1.4 var(--font);color:#d9517a}
   .g-note{margin:0;font:500 12px/1.6 var(--font);color:var(--sub)}
+  .g-label{font:700 12px/1.4 var(--font);color:var(--sub);text-align:left;margin:4px 2px -4px}
   .g-input{height:46px;border:0;background:var(--soft);border-radius:14px;padding:0 14px;font:700 15px/1 var(--font);color:var(--ink);
     -webkit-user-select:text;user-select:text;text-align:center}
   .g-input:focus{outline:2px solid var(--sky)}
@@ -288,6 +289,7 @@
   <button id="mBoard"><span class="ic" style="background:#e9dcff">▢</span>キャンバスの端まで見る</button>
   <button id="mReset"><span class="ic" style="background:var(--butter)">1:1</span>倍率を100%に</button>
   <button id="mClear" class="danger" style="display:none"><span class="ic" style="background:var(--pink)">✕</span>キャンバスを全部消す<small>管理者</small></button>
+  <button id="mName"><span class="ic" style="background:var(--pink)">✎</span>表示名を変える</button>
   <button id="mLogout"><span class="ic" style="background:var(--soft)">↩</span>ログアウト</button>
   <div class="note">2本指で移動・拡大縮小できます。人数を押すと、その人の場所へ飛べます。</div>
 </div>
@@ -434,6 +436,8 @@ const r1 = v => Math.round(v*10)/10;
 function toast(msg, ms=2200){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),ms); }
 function setStatus(msg){ const s=document.getElementById("status"); if(msg){ s.textContent=msg; s.classList.add("show"); } else s.classList.remove("show"); }
 function hashColor(str){ let h=0; for(const ch of String(str)) h=(h*31+ch.charCodeAt(0))|0; return AV_COLORS[Math.abs(h)%AV_COLORS.length]; }
+const NAME_MAX = 20;
+const cleanName = v => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, NAME_MAX) : "";
 const isHex = c => typeof c==="string" && /^#[0-9a-fA-F]{6}$/.test(c);
 
 function validStroke(s){
@@ -1070,10 +1074,11 @@ setInterval(()=>{
 }, 3000);
 
 /* ---- presence ---- */
-let lastPres = 0, presPending = null;
+let lastPres = 0, presPending = null, presLastSent = null;
 function sendPresence(wx,wy,drawing){
   if(!api || !me) return;
-  presPending = { pos: wx==null? null : [r1(wx),r1(wy)], col: tool==="eraser"? "#b8b3c8" : color, d: !!drawing, uid: myUid };
+  presPending = { pos: wx==null? null : [r1(wx),r1(wy)], col: tool==="eraser"? "#b8b3c8" : color, d: !!drawing, uid: myUid, nm: me.name || "" };
+  presLastSent = presPending;
   const now=performance.now();
   if(now-lastPres>120){ lastPres=now; api.setPresence(presPending); presPending=null; }
   else { clearTimeout(sendPresence._t); sendPresence._t=setTimeout(()=>{ if(presPending){ api.setPresence(presPending); presPending=null; lastPres=performance.now(); } },130); }
@@ -1098,7 +1103,9 @@ function renderPeers(){
     if(p.kind!=="viewer") continue;
     const pr = p.presence||{};
     const uid = p.by || (typeof pr.uid==="string" ? pr.uid : null) || p.peer;
-    if(uid && !names.has(uid) && (p.by||pr.uid)) ids.push(uid);
+    const pnm = cleanName(pr.nm);
+    if(uid && pnm) names.set(uid, pnm);          // latest name the person chose
+    else if(uid && !names.has(uid) && (p.by||pr.uid)) ids.push(uid);
     const pos = Array.isArray(pr.pos) && pr.pos.length===2 && pr.pos.every(v=>typeof v==="number"&&isFinite(v)) ? pr.pos : null;
     const prev = byUser.get(uid);
     if(!prev) byUser.set(uid,{uid, me:p.isMe, pos, at:p.updatedAt||0});
@@ -1321,6 +1328,23 @@ document.getElementById("dYes").onclick=async ()=>{
   try{ await api.clearAll(); strokes.clear(); undoStack.length=0; rebuildOrder(); toast("キャンバスを白紙にしました"); }
   catch(err){ failed(err, "消せませんでした"); }
 };
+document.getElementById("mName").onclick=()=>{
+  closeMenu();
+  if(!me) return;
+  openDialog("表示名を変える", b=>{
+    const inp = el("input","d-input"); inp.value = me.name || ""; inp.maxLength = NAME_MAX; b.appendChild(inp);
+    b.appendChild(el("p","d-text","みんなの画面に出る名前です。"+NAME_MAX+"文字まで。"));
+    setTimeout(()=>inp.focus(),50);
+    return ()=>{ const v = cleanName(inp.value); if(!v){ toast("表示名を入力してください"); return false; } return { v }; };
+  }, "保存", async ({ v })=>{
+    try{
+      await api.setNickname(v);
+      me.name = v; names.set(me.id, v);
+      api.setPresence({ ...(presLastSent||{ pos:null, col:color, d:false }), uid: myUid, nm: v });
+      renderPeers(); toast("表示名を変えました");
+    }catch(err){ failed(err, "変えられませんでした"); }
+  });
+};
 document.getElementById("mLogout").onclick=async ()=>{
   closeMenu();
   try{ await api.signOut(); }catch(_){}
@@ -1385,14 +1409,24 @@ function gate(state, info){
       break;
     }
     case "need_iriam": {
-      add(el("p","g-text","はじめに、IRIAMのIDを入力してください。運営が本人確認に使います。"));
+      add(el("p","g-text","はじめに、表示名とIRIAMのIDを入力してください。"));
+      add(el("label","g-label","表示名（みんなに見える名前）"));
+      const nameInp = el("input","g-input"); nameInp.placeholder="表示名"; nameInp.maxLength=NAME_MAX; nameInp.autocomplete="off";
+      nameInp.value = (info.me && info.me.name) || "";
+      add(nameInp);
+      add(el("label","g-label","IRIAMのID（運営が本人確認に使います）"));
       const inp = el("input","g-input"); inp.placeholder="IRIAMのID"; inp.maxLength=64; inp.autocomplete="off";
       add(inp);
       const go = btn("はじめる","primary", async ()=>{
-        const v = inp.value.trim();
+        const nm = nameInp.value.trim(), v = inp.value.trim();
+        if(!nm){ nameInp.focus(); toast("表示名を入力してください"); return; }
         if(!v){ inp.focus(); toast("IRIAMのIDを入力してください"); return; }
         go.disabled = true;
-        try{ await api.setIriam(v); handleStatus(await api.status()); }
+        try{
+          if(!info.me || nm !== info.me.name) await api.setNickname(nm);
+          await api.setIriam(v);
+          handleStatus(await api.status());
+        }
         catch(err){ go.disabled=false; failed(err, "登録できませんでした"); }
       });
       add(go); setTimeout(()=>inp.focus(), 50);
@@ -1500,6 +1534,7 @@ function memberCard(m, stroke){
   box.appendChild(head);
   const rows = [
     ["IRIAM ID", m.iriam_id || "未登録"],
+    ["Discordの名前", m.discord_name || ""],
     ["Discord ID", m.discord_id || ""],
     ["ロール", roleName(m.role) + (m.active ? "" : "（ロールなし）")],
     ["線の数", m.stroke_count + "本"],
@@ -1654,7 +1689,7 @@ async function enter(st){
     rebuildOrder();
   }catch(err){ failed(err, "絵を読み込めませんでした"); }
   setStatus(null);
-  api.setPresence({ pos:null, col:color, d:false, uid: myUid });
+  api.setPresence({ pos:null, col:color, d:false, uid: myUid, nm: me.name || "" });
   queueWarnings(st.warnings);
 }
 function lockOut(st){
@@ -1705,6 +1740,7 @@ function createSupabaseApi(cfg){
       return { state:"ready", me: meObj, warnings: st.warnings || [] };
     },
     async setIriam(v){ chk(await sb.rpc("set_my_iriam", { iriam: v })); },
+    async setNickname(v){ chk(await sb.rpc("set_my_nickname", { nick: v })); },
     async loadStrokes(){
       const out = [];
       for(let from=0;;from+=1000){
@@ -1827,6 +1863,7 @@ function createDemoApi(){
       return { state:"ready", me:meObj, warnings: d.warnings.filter(w => w.user_id===meRec.id && !w.read_at) };
     },
     async setIriam(v){ const d = read(); if(d.members[meRec.id] && !d.members[meRec.id].iriam_id) d.members[meRec.id].iriam_id = v; save(d); },
+    async setNickname(v){ const d = read(); const m = d.members[meRec.id]; if(m){ if(!m.discord_name) m.discord_name = m.display_name; m.display_name = cleanName(v) || m.display_name; } save(d); },
     async loadStrokes(){ return read().strokes.map(validStroke).filter(Boolean); },
     async addStroke(s){ const d = read(); if(activeBan(d, meRec.id)) return deny("not_member"); d.strokes.push({ ...s, by: meRec.id }); save(d); post({ type:"ins", s:{ ...s, by: meRec.id } }); },
     async deleteStroke(id){

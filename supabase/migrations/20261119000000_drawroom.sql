@@ -20,6 +20,10 @@ create table if not exists public.members (
   created_at   timestamptz not null default now()
 );
 
+-- Name the member chose for the room (display_name keeps the Discord name)
+alter table public.members add column if not exists nickname text
+  check (nickname is null or char_length(nickname) between 1 and 20);
+
 -- One row per line on the canvas
 create table if not exists public.strokes (
   id         text primary key check (char_length(id) between 1 and 40),
@@ -154,7 +158,7 @@ grant insert, delete on public.strokes to authenticated;
 
 -- Names everyone in the room may see (no IRIAM ID, no Discord ID)
 create or replace view public.profiles as
-  select user_id, display_name, avatar_url, role
+  select user_id, coalesce(nickname, display_name) as display_name, avatar_url, role
   from public.members
   where public.is_member();
 revoke all on public.profiles from anon;
@@ -181,7 +185,9 @@ begin
     'active', m.active,
     'verified', m.verified_at > now() - interval '30 days',
     'role', m.role,
-    'display_name', m.display_name,
+    'display_name', coalesce(m.nickname, m.display_name),
+    'discord_name', m.display_name,
+    'nickname', m.nickname,
     'iriam_id', m.iriam_id,
     'banned', b.user_id is not null,
     'ban_until', b.until,
@@ -206,6 +212,18 @@ begin
   end if;
   update public.members set iriam_id = btrim(iriam)
    where user_id = auth.uid() and iriam_id is null;
+end $$;
+
+-- The member's own display name in the room (any time)
+create or replace function public.set_my_nickname(nick text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v text := btrim(regexp_replace(coalesce(nick, ''), '[[:cntrl:]]', '', 'g'));
+begin
+  if not exists (select 1 from public.members where user_id = auth.uid() and active) then
+    raise exception 'not_member';
+  end if;
+  if char_length(v) not between 1 and 20 then raise exception 'invalid_nickname'; end if;
+  update public.members set nickname = v where user_id = auth.uid();
 end $$;
 
 create or replace function public.ack_warning(wid bigint) returns void
@@ -279,9 +297,10 @@ end $$;
 -- 5. Functions for staff
 -- ---------------------------------------------------------------------
 
+drop function if exists public.staff_members();
 create or replace function public.staff_members()
 returns table (
-  user_id uuid, display_name text, discord_id text, iriam_id text, role text,
+  user_id uuid, display_name text, discord_name text, discord_id text, iriam_id text, role text,
   active boolean, verified_at timestamptz, stroke_count bigint, warning_count bigint,
   banned boolean, ban_until timestamptz, ban_reason text
 )
@@ -290,14 +309,14 @@ language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.is_staff() then raise exception 'not_staff'; end if;
   return query
-    select m.user_id, m.display_name, m.discord_id, m.iriam_id, m.role, m.active, m.verified_at,
+    select m.user_id, coalesce(m.nickname, m.display_name), m.display_name, m.discord_id, m.iriam_id, m.role, m.active, m.verified_at,
            (select count(*) from public.strokes s where s.user_id = m.user_id),
            (select count(*) from public.warnings w where w.user_id = m.user_id),
            (b.user_id is not null), b.until, b.reason
     from public.members m
     left join public.bans b
       on b.user_id = m.user_id and (b.until is null or b.until > now())
-    order by m.display_name;
+    order by coalesce(m.nickname, m.display_name);
 end $$;
 
 create or replace function public.staff_warn(target uuid, msg text) returns void
@@ -372,14 +391,14 @@ end $$;
 
 -- Only signed-in people may call the functions
 revoke execute on function
-  public.my_status(), public.set_my_iriam(text), public.ack_warning(bigint),
+  public.my_status(), public.set_my_iriam(text), public.set_my_nickname(text), public.ack_warning(bigint),
   public.erase_strokes(text[], jsonb), public.restore_strokes(text[], text[]),
   public.staff_members(), public.staff_warn(uuid, text), public.staff_ban(uuid, int, text),
   public.staff_unban(uuid), public.staff_delete_user_strokes(uuid), public.staff_clear_all(),
   public.staff_set_iriam(uuid, text)
 from public, anon;
 grant execute on function
-  public.my_status(), public.set_my_iriam(text), public.ack_warning(bigint),
+  public.my_status(), public.set_my_iriam(text), public.set_my_nickname(text), public.ack_warning(bigint),
   public.erase_strokes(text[], jsonb), public.restore_strokes(text[], text[]),
   public.staff_members(), public.staff_warn(uuid, text), public.staff_ban(uuid, int, text),
   public.staff_unban(uuid), public.staff_delete_user_strokes(uuid), public.staff_clear_all(),
